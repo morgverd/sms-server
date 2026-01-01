@@ -59,7 +59,7 @@ pub struct SendSmsRequest {
     pub content: String,
 
     #[serde(default)]
-    pub flash: bool,
+    pub flash: Option<bool>,
 
     #[serde(default)]
     pub validity_period: Option<u8>,

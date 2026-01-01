@@ -1,8 +1,8 @@
 #![cfg_attr(not(feature = "http-server"), allow(dead_code))]
 
-use crate::sms::types::{SMSIncomingDeliveryReport, SMSIncomingMessage};
 use anyhow::{anyhow, bail};
 use serde::{Deserialize, Serialize};
+use sms_types::sms::{SmsIncomingMessage, SmsPartialDeliveryReport};
 use std::fmt::{Display, Formatter};
 use std::time::Duration;
 
@@ -147,8 +147,8 @@ impl UnsolicitedMessageType {
 
 #[derive(Debug, Clone)]
 pub enum ModemIncomingMessage {
-    IncomingSMS(SMSIncomingMessage),
-    DeliveryReport(SMSIncomingDeliveryReport),
+    IncomingSMS(SmsIncomingMessage),
+    DeliveryReport(SmsPartialDeliveryReport),
     ModemStatusUpdate {
         previous: ModemStatus,
         current: ModemStatus,

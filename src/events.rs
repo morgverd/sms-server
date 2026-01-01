@@ -1,10 +1,9 @@
 use crate::config::AppConfig;
 use crate::modem::types::{GNSSLocation, ModemStatus};
-use crate::sms::types::SMSIncomingDeliveryReport;
-use crate::types::SMSMessage;
 use crate::webhooks::WebhookSender;
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
+use sms_types::sms::{SmsMessage, SmsPartialDeliveryReport};
 use tokio::task::JoinHandle;
 use tracing::log::debug;
 
@@ -73,15 +72,15 @@ impl TryFrom<&str> for EventType {
 #[serde(tag = "type", content = "data")]
 pub enum Event {
     #[serde(rename = "incoming")]
-    IncomingMessage(SMSMessage),
+    IncomingMessage(SmsMessage),
 
     #[serde(rename = "outgoing")]
-    OutgoingMessage(SMSMessage),
+    OutgoingMessage(SmsMessage),
 
     #[serde(rename = "delivery")]
     DeliveryReport {
         message_id: i64,
-        report: SMSIncomingDeliveryReport,
+        report: SmsPartialDeliveryReport,
     },
 
     #[serde(rename = "modem_status_update")]

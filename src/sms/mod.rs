@@ -3,7 +3,6 @@
 mod database;
 mod encryption;
 mod multipart;
-pub mod types;
 
 use crate::config::DatabaseConfig;
 use crate::events::{Event, EventBroadcaster};
@@ -11,14 +10,18 @@ use crate::modem::sender::ModemSender;
 use crate::modem::types::{ModemRequest, ModemResponse};
 use crate::sms::database::SMSDatabase;
 use crate::sms::multipart::SMSMultipartMessages;
-use crate::sms::types::{SMSIncomingDeliveryReport, SMSIncomingMessage};
-use crate::types::{SMSMessage, SMSOutgoingMessage, SMSStatus};
 use anyhow::{bail, Result};
+use sms_types::sms::{
+    SmsIncomingMessage, SmsMessage, SmsOutgoingMessage,
+    SmsPartialDeliveryReport,
+};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::log::{debug, error, warn};
+
+pub type SMSEncryptionKey = [u8; 32];
 
 #[derive(Clone)]
 pub struct SMSManager {
@@ -43,7 +46,7 @@ impl SMSManager {
     /// Returns the database row ID and final modem response.
     pub async fn send_sms(
         &self,
-        message: SMSOutgoingMessage,
+        message: SmsOutgoingMessage,
     ) -> Result<(Option<i64>, ModemResponse)> {
         let last_response = match self.modem.send_sms(&message).await? {
             // If all requests were not sent, then don't store any in the database as it must
@@ -54,14 +57,14 @@ impl SMSManager {
         };
         debug!("SMSManager last_response: {last_response:?}");
 
-        let mut new_message = SMSMessage::from(&message);
+        let mut new_message = SmsMessage::from(&message);
         let send_failure = match &last_response {
             ModemResponse::SendResult(reference_id) => {
                 new_message.message_reference.replace(*reference_id);
                 None
             }
             ModemResponse::Error(error_message) => {
-                new_message.status = SMSStatus::PermanentFailure;
+                new_message.status = None; // TODO: FIX THIS!
                 Some(error_message)
             }
             _ => bail!("Got invalid ModemResponse back from sending SMS message!"),
@@ -129,7 +132,7 @@ impl SMSReceiver {
     /// Option for multipart messages, as individual parts aren't stored only compiled result.
     pub async fn handle_incoming_sms(
         &mut self,
-        incoming_message: SMSIncomingMessage,
+        incoming_message: SmsIncomingMessage,
     ) -> Option<Result<i64>> {
         // Handle incoming message, discarding if it's a multipart message and not final.
         let message = match self.get_incoming_sms_message(incoming_message).await {
@@ -153,7 +156,7 @@ impl SMSReceiver {
     }
 
     /// Store + emit delivery report.
-    pub async fn handle_delivery_report(&self, report: SMSIncomingDeliveryReport) -> Result<i64> {
+    pub async fn handle_delivery_report(&self, report: SmsPartialDeliveryReport) -> Result<i64> {
         // Find the target message from phone number and message reference. This will be fine unless we send 255
         // messages to the client before they reply with delivery reports as then there's no way to properly track.
         let message_id = match self
@@ -166,11 +169,11 @@ impl SMSReceiver {
             None => bail!("Could not find target message for delivery report!"),
         };
 
+        // Check if we should expect more delivery reports from this message_id.
         let is_final = report.status.is_success() || report.status.is_permanent_error();
-        let status = u8::from(&SMSStatus::from(&report.status));
+        let status_u8 = report.status as u8;
 
         // Send delivery report event.
-        let sms_status = SMSStatus::from(&report.status);
         if let Some(broadcaster) = &self.manager.broadcaster {
             broadcaster
                 .broadcast(Event::DeliveryReport { message_id, report })
@@ -179,12 +182,12 @@ impl SMSReceiver {
 
         self.manager
             .database
-            .insert_delivery_report(message_id, status, is_final)
+            .insert_delivery_report(message_id, status_u8, is_final)
             .await?;
 
         self.manager
             .database
-            .update_message_status(message_id, &sms_status, is_final)
+            .update_message_status(message_id, status_u8, is_final)
             .await?;
 
         Ok(message_id)
@@ -212,13 +215,12 @@ impl SMSReceiver {
     /// Optional result is from the multipart message compile.
     async fn get_incoming_sms_message(
         &mut self,
-        incoming_message: SMSIncomingMessage,
-    ) -> Option<Result<SMSMessage>> {
-        // Decode the message data header to get multipart header.
-        let header = match incoming_message.decode_multipart_data() {
-            Some(Ok(header)) => header,
-            Some(Err(e)) => return Some(Err(e)),
-            None => return Some(Ok(SMSMessage::from(&incoming_message))),
+        incoming_message: SmsIncomingMessage,
+    ) -> Option<Result<SmsMessage>> {
+        // If there is no multipart header, skip multipart checks.
+        let header = match incoming_message.user_data_header.clone() {
+            Some(header) => header,
+            None => return Some(Ok(SmsMessage::from(&incoming_message))),
         };
 
         let phone_number: Arc<str> = incoming_message.phone_number.clone().into();
@@ -229,7 +231,6 @@ impl SMSReceiver {
         match guard.entry(multipart_ref) {
             Entry::Vacant(entry) => {
                 // New multipart message reference.
-
                 debug!(
                     "Creating new multipart handler, expecting {} parts",
                     header.total

@@ -1,7 +1,6 @@
-use crate::sms::types::SMSIncomingMessage;
-use crate::types::SMSMessage;
 use anyhow::anyhow;
 use anyhow::Result;
+use sms_types::sms::{SmsIncomingMessage, SmsMessage};
 use std::time::Duration;
 use tokio::time::Instant;
 use tracing::log::debug;
@@ -19,7 +18,7 @@ pub struct SMSMultipartHeader {
 pub struct SMSMultipartMessages {
     total_size: usize,
     last_updated: Instant,
-    first_message: Option<SMSIncomingMessage>,
+    first_message: Option<SmsIncomingMessage>,
     text_len: usize,
     text_parts: Vec<Option<String>>,
     received_count: usize,
@@ -36,7 +35,7 @@ impl SMSMultipartMessages {
         }
     }
 
-    pub fn add_message(&mut self, message: SMSIncomingMessage, index: u8) -> bool {
+    pub fn add_message(&mut self, message: SmsIncomingMessage, index: u8) -> bool {
         self.last_updated = Instant::now();
 
         let idx = (index as usize).saturating_sub(1);
@@ -68,8 +67,8 @@ impl SMSMultipartMessages {
         self.received_count >= self.total_size
     }
 
-    pub fn compile(&self) -> Result<SMSMessage> {
-        let first_message = match &self.first_message {
+    pub fn compile(&self) -> Result<SmsMessage> {
+        let first_message = match self.first_message.as_ref() {
             Some(first_message) => first_message,
             None => {
                 return Err(anyhow!(
@@ -83,7 +82,7 @@ impl SMSMultipartMessages {
             content.push_str(text);
         }
 
-        let mut message = SMSMessage::from(first_message);
+        let mut message = SmsMessage::from(first_message);
         message.message_content = content;
 
         Ok(message)
@@ -100,8 +99,8 @@ mod tests {
     use super::*;
     const TEST_NUMBER: &str = "+123456789";
 
-    fn create_test_message(content: &str) -> SMSIncomingMessage {
-        SMSIncomingMessage {
+    fn create_test_message(content: &str) -> SmsIncomingMessage {
+        SmsIncomingMessage {
             phone_number: TEST_NUMBER.to_string(),
             user_data_header: None,
             content: content.to_string(),

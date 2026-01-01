@@ -4,9 +4,11 @@ use crate::modem::types::{
     ModemIncomingMessage, ModemRequest, ModemResponse, ModemStatus, UnsolicitedMessageType,
 };
 use crate::modem::worker::WorkerEvent;
-use crate::sms::types::{SMSIncomingDeliveryReport, SMSIncomingMessage};
 use anyhow::{anyhow, bail, Result};
 use sms_pdu::pdu::{DeliverPdu, StatusReportPdu};
+use sms_types::sms::{
+    SmsIncomingMessage, SmsMultipartHeader, SmsPartialDeliveryReport,
+};
 use tokio::sync::mpsc;
 use tracing::log::{debug, warn};
 
@@ -77,9 +79,12 @@ impl ModemEventHandlers {
 
                 // Decode incoming message data to get user data header which is required for multipart messages.
                 let incoming = match deliver_pdu.get_message_data().decode_message() {
-                    Ok(msg) => SMSIncomingMessage {
+                    Ok(msg) => SmsIncomingMessage {
                         phone_number: get_real_number(deliver_pdu.originating_address.to_string()),
-                        user_data_header: msg.udh,
+                        user_data_header: msg.udh
+                            .map(|udh| SmsMultipartHeader::try_from(udh.as_bytes()))
+                            .transpose()
+                            .map_err(anyhow::Error::msg)?,
                         content: msg.text,
                     },
                     Err(e) => bail!("Failed to parse incoming SMS data: {:?}", e),
@@ -92,8 +97,8 @@ impl ModemEventHandlers {
                 let status_report_pdu =
                     StatusReportPdu::try_from(content_hex.as_slice()).map_err(|e| anyhow!(e))?;
 
-                let report = SMSIncomingDeliveryReport {
-                    status: status_report_pdu.status,
+                let report = SmsPartialDeliveryReport {
+                    status: sms_pdu::pdu::MessageStatus::from(status_report_pdu.status),
                     phone_number: get_real_number(status_report_pdu.recipient_address.to_string()),
                     reference_id: status_report_pdu.message_reference,
                 };
