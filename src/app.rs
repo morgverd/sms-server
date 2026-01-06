@@ -147,7 +147,7 @@ impl AppHandles {
             ModemIncomingMessage::ModemStatusUpdate { previous, current } => {
                 if let Some(broadcaster) = broadcaster {
                     broadcaster
-                        .broadcast(Event::ModemStatusUpdate { previous, current })
+                        .broadcast(Event::ModemStatusUpdate { previous: previous.into(), current: current.into() })
                         .await;
                 }
             }

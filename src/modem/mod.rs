@@ -8,13 +8,13 @@ use tokio::sync::mpsc;
 use tokio_serial::SerialPortBuilderExt;
 use tracing::log::error;
 
+pub mod types;
+pub mod sender;
 mod buffer;
 mod commands;
 mod handlers;
 mod parsers;
-pub mod sender;
 mod state_machine;
-pub mod types;
 mod worker;
 
 pub struct ModemManager {

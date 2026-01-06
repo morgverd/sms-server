@@ -35,13 +35,15 @@ fn create_sms_requests(message: &SmsOutgoingMessage) -> Result<Vec<ModemRequest>
                     rp: false,
                 },
                 message_id: 0,
-                destination,
+
+                /// TODO: Look into removing this clone.
+                destination: destination.clone(),
                 dcs: pdu::DataCodingScheme::Standard {
                     compressed: false,
                     class: message
                         .flash
                         .unwrap_or(false)
-                        .then(pdu::MessageClass::Silent),
+                        .then_some(pdu::MessageClass::Silent),
                     encoding: data.encoding,
                 },
                 validity_period,

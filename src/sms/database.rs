@@ -108,7 +108,7 @@ impl SMSDatabase {
             .bind(encrypted_content)
             .bind(message.message_reference)
             .bind(message.is_outgoing)
-            .bind(u8::from(&message.status))
+            .bind(message.status)
             .execute(&self.pool)
             .await
             .map_err(|e| anyhow!(e))?;
@@ -284,9 +284,7 @@ impl SMSDatabase {
                     is_outgoing: row.get("is_outgoing"),
                     created_at: row.get("created_at"),
                     completed_at: row.get("completed_at"),
-                    status: Some(sms_pdu::pdu::MessageStatus::try_from(
-                        row.get::<u8, _>("status"),
-                    )?),
+                    status: Some(row.get::<u8, _>("status")),
                 })
             })
             .collect::<Result<Vec<_>, _>>()

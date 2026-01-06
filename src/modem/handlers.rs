@@ -98,7 +98,7 @@ impl ModemEventHandlers {
                     StatusReportPdu::try_from(content_hex.as_slice()).map_err(|e| anyhow!(e))?;
 
                 let report = SmsPartialDeliveryReport {
-                    status: sms_pdu::pdu::MessageStatus::from(status_report_pdu.status),
+                    status: status_report_pdu.status as u8,
                     phone_number: get_real_number(status_report_pdu.recipient_address.to_string()),
                     reference_id: status_report_pdu.message_reference,
                 };

@@ -19,7 +19,7 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::log::{debug, error, warn};
+use tracing::log::{debug, error, info, warn};
 
 pub type SMSEncryptionKey = [u8; 32];
 
@@ -170,8 +170,10 @@ impl SMSReceiver {
         };
 
         // Check if we should expect more delivery reports from this message_id.
-        let is_final = report.status.is_success() || report.status.is_permanent_error();
+        // let is_final = report.status.is_success() || report.status.is_permanent_error();
+        let is_final = true; /// TODO: ACTUALLY IMPLEMENT THIS!!!
         let status_u8 = report.status as u8;
+        info!("IS_FINAL DEBUG TEST LEFT IN!!!!!");
 
         // Send delivery report event.
         if let Some(broadcaster) = &self.manager.broadcaster {

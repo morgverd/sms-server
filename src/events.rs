@@ -1,8 +1,9 @@
 use crate::config::AppConfig;
-use crate::modem::types::{GNSSLocation, ModemStatus};
 use crate::webhooks::WebhookSender;
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
+use sms_types::gnss::PositionReport;
+use sms_types::modem::ModemStatusUpdateState;
 use sms_types::sms::{SmsMessage, SmsPartialDeliveryReport};
 use tokio::task::JoinHandle;
 use tracing::log::debug;
@@ -85,12 +86,12 @@ pub enum Event {
 
     #[serde(rename = "modem_status_update")]
     ModemStatusUpdate {
-        previous: ModemStatus,
-        current: ModemStatus,
+        previous: ModemStatusUpdateState,
+        current: ModemStatusUpdateState,
     },
 
     #[serde(rename = "gnss_position_report")]
-    GNSSPositionReport(GNSSLocation),
+    GNSSPositionReport(PositionReport),
 }
 impl Event {
     #[inline]

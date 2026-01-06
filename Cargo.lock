@@ -2974,7 +2974,7 @@ dependencies = [
 
 [[package]]
 name = "sms-server"
-version = "2.3.6"
+version = "3.1.1"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -3012,11 +3012,10 @@ dependencies = [
 
 [[package]]
 name = "sms-types"
-version = "0.2.2"
+version = "0.3.1"
 dependencies = [
  "serde",
  "serde_json",
- "sms-pdu",
  "sqlx",
 ]
 

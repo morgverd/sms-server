@@ -1,6 +1,6 @@
 [package]
 name = "sms-server"
-version = "2.3.6"
+version = "3.1.1"
 edition = "2021"
 license = "AGPL-3.0-only"
 build = "build.rs"
@@ -38,7 +38,7 @@ tls-native = ["reqwest/native-tls", "sentry?/native-tls", "axum-server?/tls-open
 
 [dependencies]
 sms-pdu = { features = ["serde"], path = "../sms-pdu" }
-sms-types = { features = ["pdu", "sqlx"], path = "../sms-types" }
+sms-types = { features = ["sqlx"], path = "../sms-types" }
 tokio = { version = "1.45.1", features = ["rt-multi-thread", "parking_lot"] }
 serde = { version = "1.0.219", features = ["derive"] }
 sqlx = { version = "0.8.6" }

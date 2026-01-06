@@ -8,13 +8,6 @@ use tracing::log::debug;
 const MULTIPART_MESSAGES_STALLED_DURATION: Duration = Duration::from_secs(30 * 60); // 30 minutes
 
 #[derive(Debug, Clone)]
-pub struct SMSMultipartHeader {
-    pub message_reference: u8,
-    pub total: u8,
-    pub index: u8,
-}
-
-#[derive(Debug, Clone)]
 pub struct SMSMultipartMessages {
     total_size: usize,
     last_updated: Instant,
