@@ -1,5 +1,4 @@
 use crate::config::ConfiguredWebhook;
-use crate::events::{Event, EventType};
 use anyhow::{Context, Result};
 use futures::{stream, StreamExt};
 use reqwest::header::HeaderMap;
@@ -8,6 +7,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
+use sms_types::events::{Event, EventKind};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tracing::log::{debug, error, info, warn};
@@ -114,7 +114,7 @@ type StoredWebhook = (ConfiguredWebhook, Option<HeaderMap>);
 
 struct WebhookWorker {
     webhooks: Arc<[StoredWebhook]>,
-    events_map: HashMap<EventType, Vec<usize>>,
+    events_map: HashMap<EventKind, Vec<usize>>,
     event_receiver: mpsc::UnboundedReceiver<Event>,
     client: Client,
 }
@@ -123,7 +123,7 @@ impl WebhookWorker {
         webhooks: Vec<ConfiguredWebhook>,
         event_receiver: mpsc::UnboundedReceiver<Event>,
     ) -> Self {
-        let mut events_map: HashMap<EventType, Vec<usize>> = HashMap::new();
+        let mut events_map: HashMap<EventKind, Vec<usize>> = HashMap::new();
         for (idx, webhook) in webhooks.iter().enumerate() {
             for event in &webhook.events {
                 events_map.entry(*event).or_default().push(idx);
@@ -166,7 +166,9 @@ impl WebhookWorker {
     }
 
     async fn process(&self, event: Event) {
-        let webhook_indices = match self.events_map.get(&event.to_event_type()) {
+        let webhook_indices = match self.events_map.get(
+            &EventKind::from(&event)
+        ) {
             Some(indices) => indices.clone(),
             None => return,
         };

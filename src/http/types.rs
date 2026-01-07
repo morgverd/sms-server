@@ -1,8 +1,8 @@
-use crate::events::EventType;
 use axum::http::StatusCode;
 use axum::Json;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use sms_types::events::EventKind;
 
 pub type JsonResult<T> = Result<Json<HttpResponse<T>>, (StatusCode, Json<HttpResponse<T>>)>;
 
@@ -106,22 +106,22 @@ pub struct WebSocketQuery {
     pub events: Option<String>,
 }
 impl WebSocketQuery {
-    pub fn get_event_types(&self) -> Option<Vec<EventType>> {
+    pub fn get_event_types(&self) -> Option<Vec<EventKind>> {
         let events_str = self.events.as_ref()?;
         if events_str == "*" {
             return None;
         }
 
-        let events: Vec<EventType> = events_str
+        let events: Vec<EventKind> = events_str
             .split(",")
-            .filter_map(|s| EventType::try_from(s.trim()).ok())
+            .filter_map(|s| EventKind::try_from(s.trim()).ok())
             .collect::<HashSet<_>>()
             .into_iter()
             .collect();
 
         // If there are none or all, accept all events by applying no filter
         let size = events.len();
-        if size == 0 || size == EventType::COUNT {
+        if size == 0 || size == EventKind::COUNT {
             return None;
         }
 
@@ -175,7 +175,7 @@ mod websocket_query_tests {
         };
         let result = query.get_event_types().unwrap();
         assert_eq!(result.len(), 1);
-        assert!(result.contains(&EventType::IncomingMessage));
+        assert!(result.contains(&EventKind::IncomingMessage));
 
         // Duplicates
         let query = WebSocketQuery {
@@ -183,9 +183,9 @@ mod websocket_query_tests {
         };
         let result = query.get_event_types().unwrap();
         assert_eq!(result.len(), 3);
-        assert!(result.contains(&EventType::IncomingMessage));
-        assert!(result.contains(&EventType::OutgoingMessage));
-        assert!(result.contains(&EventType::DeliveryReport));
+        assert!(result.contains(&EventKind::IncomingMessage));
+        assert!(result.contains(&EventKind::OutgoingMessage));
+        assert!(result.contains(&EventKind::DeliveryReport));
 
         // Mixed valid and invalid events with whitespace
         let query = WebSocketQuery {
@@ -193,16 +193,16 @@ mod websocket_query_tests {
         };
         let result = query.get_event_types().unwrap();
         assert_eq!(result.len(), 3);
-        assert!(result.contains(&EventType::IncomingMessage));
-        assert!(result.contains(&EventType::OutgoingMessage));
-        assert!(result.contains(&EventType::DeliveryReport));
+        assert!(result.contains(&EventKind::IncomingMessage));
+        assert!(result.contains(&EventKind::OutgoingMessage));
+        assert!(result.contains(&EventKind::DeliveryReport));
 
         let query = WebSocketQuery {
             events: Some(",incoming,,outgoing,".to_string()),
         };
         let result = query.get_event_types().unwrap();
         assert_eq!(result.len(), 2);
-        assert!(result.contains(&EventType::IncomingMessage));
-        assert!(result.contains(&EventType::OutgoingMessage));
+        assert!(result.contains(&EventKind::IncomingMessage));
+        assert!(result.contains(&EventKind::OutgoingMessage));
     }
 }

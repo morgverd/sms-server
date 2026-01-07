@@ -5,7 +5,7 @@ mod encryption;
 mod multipart;
 
 use crate::config::DatabaseConfig;
-use crate::events::{Event, EventBroadcaster};
+use crate::events::EventBroadcaster;
 use crate::modem::sender::ModemSender;
 use crate::modem::types::{ModemRequest, ModemResponse};
 use crate::sms::database::SMSDatabase;
@@ -18,6 +18,7 @@ use sms_types::sms::{
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::Arc;
+use sms_types::events::Event;
 use tokio::sync::Mutex;
 use tracing::log::{debug, error, info, warn};
 

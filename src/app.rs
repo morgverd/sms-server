@@ -1,11 +1,12 @@
 use crate::config::AppConfig;
-use crate::events::{Event, EventBroadcaster};
+use crate::events::EventBroadcaster;
 use crate::modem::types::ModemIncomingMessage;
 use crate::modem::ModemManager;
 use crate::sms::{SMSManager, SMSReceiver};
 use crate::TracingReloadHandle;
 use anyhow::{bail, Result};
 use std::time::Duration;
+use sms_types::events::Event;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::task::JoinHandle;
 use tokio::time::interval;
@@ -154,7 +155,7 @@ impl AppHandles {
             ModemIncomingMessage::GNSSPositionReport(location) => {
                 if let Some(broadcaster) = broadcaster {
                     broadcaster
-                        .broadcast(Event::GNSSPositionReport(location))
+                        .broadcast(Event::GnssPositionReport(location))
                         .await;
                 }
             }

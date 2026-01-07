@@ -1,13 +1,13 @@
-use crate::events::{Event, EventType};
 use futures::{SinkExt, StreamExt};
 use std::collections::HashMap;
 use std::sync::Arc;
+use sms_types::events::{Event, EventKind};
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::{mpsc, RwLock};
 use tracing::log::{debug, error};
 use uuid::Uuid;
 
-pub type WebSocketConnection = (axum::extract::ws::WebSocket, Option<Vec<EventType>>);
+pub type WebSocketConnection = (axum::extract::ws::WebSocket, Option<Vec<EventKind>>);
 type StoredConnection = (UnboundedSender<axum::extract::ws::Utf8Bytes>, u8); // sender + event mask
 
 #[derive(Clone)]
@@ -30,7 +30,7 @@ impl WebSocketManager {
             }
         };
 
-        let event_bit = event.to_event_type().to_bit();
+        let event_bit = EventKind::from(&event).to_bit();
         let connections = self.connections.read().await;
         let mut successful_sends = 0;
         let mut failed_connections = Vec::new();
@@ -60,11 +60,11 @@ impl WebSocketManager {
     pub async fn add_connection(
         &self,
         tx: UnboundedSender<axum::extract::ws::Utf8Bytes>,
-        events: Option<Vec<EventType>>,
+        events: Option<Vec<EventKind>>,
     ) -> String {
         let event_mask = match events {
-            Some(event_types) => EventType::events_to_mask(&event_types),
-            None => EventType::all_bits(),
+            Some(event_types) => EventKind::events_to_mask(&event_types),
+            None => EventKind::all_bits(),
         };
 
         loop {
