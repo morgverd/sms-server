@@ -3,11 +3,11 @@ use base64::engine::general_purpose;
 use base64::Engine;
 use reqwest::header::HeaderMap;
 use serde::Deserialize;
+use sms_types::events::EventKind;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
-use sms_types::events::EventKind;
 
 #[cfg(feature = "http-server")]
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};

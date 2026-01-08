@@ -1,8 +1,8 @@
 use axum::http::StatusCode;
 use axum::Json;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use sms_types::events::EventKind;
+use std::collections::HashSet;
 
 pub type JsonResult<T> = Result<Json<HttpResponse<T>>, (StatusCode, Json<HttpResponse<T>>)>;
 

@@ -3,12 +3,8 @@
 use crate::config::DatabaseConfig;
 use crate::sms::encryption::SMSEncryption;
 use anyhow::{anyhow, Result};
-use sms_types::sms::{
-    SmsDeliveryReport, SmsMessage
-};
-use sqlx::sqlite::{
-    SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous
-};
+use sms_types::sms::{SmsDeliveryReport, SmsMessage};
+use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous};
 use sqlx::{Row, SqlitePool};
 use std::time::Duration;
 use tracing::log::debug;

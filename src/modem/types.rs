@@ -1,11 +1,11 @@
 #![cfg_attr(not(feature = "http-server"), allow(dead_code))]
 
 use serde::{Deserialize, Serialize};
+use sms_types::gnss::{FixStatus, PositionReport};
+use sms_types::modem::ModemStatusUpdateState;
 use sms_types::sms::{SmsIncomingMessage, SmsPartialDeliveryReport};
 use std::fmt::{Display, Formatter};
 use std::time::Duration;
-use sms_types::gnss::{FixStatus, PositionReport};
-use sms_types::modem::ModemStatusUpdateState;
 
 #[derive(Debug, Clone)]
 pub enum ModemRequest {
@@ -96,12 +96,11 @@ pub enum ModemStatus {
     ShuttingDown,
     Offline,
 }
-impl Into<ModemStatusUpdateState> for ModemStatus {
-
+impl From<ModemStatus> for ModemStatusUpdateState {
     /// TODO: Review this, is it required or should ModemStatus be removed entirely?
     ///  It looked weird for the worker to depend on a state from another crate (sms-types)
-    fn into(self) -> ModemStatusUpdateState {
-        match self {
+    fn from(val: ModemStatus) -> Self {
+        match val {
             ModemStatus::Startup => ModemStatusUpdateState::Startup,
             ModemStatus::Online => ModemStatusUpdateState::Online,
             ModemStatus::ShuttingDown => ModemStatusUpdateState::ShuttingDown,

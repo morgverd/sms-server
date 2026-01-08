@@ -35,8 +35,6 @@ fn create_sms_requests(message: &SmsOutgoingMessage) -> Result<Vec<ModemRequest>
                     rp: false,
                 },
                 message_id: 0,
-
-                /// TODO: Look into removing this clone.
                 destination: destination.clone(),
                 dcs: pdu::DataCodingScheme::Standard {
                     compressed: false,

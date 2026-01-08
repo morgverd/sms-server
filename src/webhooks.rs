@@ -3,11 +3,11 @@ use anyhow::{Context, Result};
 use futures::{stream, StreamExt};
 use reqwest::header::HeaderMap;
 use reqwest::Client;
+use sms_types::events::{Event, EventKind};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
-use sms_types::events::{Event, EventKind};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tracing::log::{debug, error, info, warn};
@@ -166,9 +166,7 @@ impl WebhookWorker {
     }
 
     async fn process(&self, event: Event) {
-        let webhook_indices = match self.events_map.get(
-            &EventKind::from(&event)
-        ) {
+        let webhook_indices = match self.events_map.get(&EventKind::from(&event)) {
             Some(indices) => indices.clone(),
             None => return,
         };

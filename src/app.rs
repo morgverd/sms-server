@@ -5,8 +5,8 @@ use crate::modem::ModemManager;
 use crate::sms::{SMSManager, SMSReceiver};
 use crate::TracingReloadHandle;
 use anyhow::{bail, Result};
-use std::time::Duration;
 use sms_types::events::Event;
+use std::time::Duration;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::task::JoinHandle;
 use tokio::time::interval;
@@ -148,7 +148,10 @@ impl AppHandles {
             ModemIncomingMessage::ModemStatusUpdate { previous, current } => {
                 if let Some(broadcaster) = broadcaster {
                     broadcaster
-                        .broadcast(Event::ModemStatusUpdate { previous: previous.into(), current: current.into() })
+                        .broadcast(Event::ModemStatusUpdate {
+                            previous: previous.into(),
+                            current: current.into(),
+                        })
                         .await;
                 }
             }

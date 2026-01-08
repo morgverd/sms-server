@@ -11,16 +11,17 @@ use crate::modem::types::{ModemRequest, ModemResponse};
 use crate::sms::database::SMSDatabase;
 use crate::sms::multipart::SMSMultipartMessages;
 use anyhow::{bail, Result};
+use num_traits::cast::FromPrimitive;
+use sms_pdu::pdu::MessageStatus;
+use sms_types::events::Event;
 use sms_types::sms::{
-    SmsIncomingMessage, SmsMessage, SmsOutgoingMessage,
-    SmsPartialDeliveryReport,
+    SmsIncomingMessage, SmsMessage, SmsOutgoingMessage, SmsPartialDeliveryReport,
 };
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::Arc;
-use sms_types::events::Event;
 use tokio::sync::Mutex;
-use tracing::log::{debug, error, info, warn};
+use tracing::log::{debug, error, warn};
 
 pub type SMSEncryptionKey = [u8; 32];
 
@@ -65,7 +66,7 @@ impl SMSManager {
                 None
             }
             ModemResponse::Error(error_message) => {
-                new_message.status = None; // TODO: FIX THIS!
+                new_message.status = None;
                 Some(error_message)
             }
             _ => bail!("Got invalid ModemResponse back from sending SMS message!"),
@@ -171,10 +172,10 @@ impl SMSReceiver {
         };
 
         // Check if we should expect more delivery reports from this message_id.
-        // let is_final = report.status.is_success() || report.status.is_permanent_error();
-        let is_final = true; /// TODO: ACTUALLY IMPLEMENT THIS!!!
-        let status_u8 = report.status as u8;
-        info!("IS_FINAL DEBUG TEST LEFT IN!!!!!");
+        let report_status = report.status;
+        let is_final = MessageStatus::from_u8(report_status)
+            .map(|status| status.is_success() || status.is_permanent_error())
+            .unwrap_or(true);
 
         // Send delivery report event.
         if let Some(broadcaster) = &self.manager.broadcaster {
@@ -185,12 +186,12 @@ impl SMSReceiver {
 
         self.manager
             .database
-            .insert_delivery_report(message_id, status_u8, is_final)
+            .insert_delivery_report(message_id, report_status, is_final)
             .await?;
 
         self.manager
             .database
-            .update_message_status(message_id, status_u8, is_final)
+            .update_message_status(message_id, report_status, is_final)
             .await?;
 
         Ok(message_id)
@@ -221,7 +222,7 @@ impl SMSReceiver {
         incoming_message: SmsIncomingMessage,
     ) -> Option<Result<SmsMessage>> {
         // If there is no multipart header, skip multipart checks.
-        let header = match incoming_message.user_data_header.clone() {
+        let header = match incoming_message.user_data_header {
             Some(header) => header,
             None => return Some(Ok(SmsMessage::from(&incoming_message))),
         };

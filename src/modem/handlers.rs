@@ -6,9 +6,7 @@ use crate::modem::types::{
 use crate::modem::worker::WorkerEvent;
 use anyhow::{anyhow, bail, Result};
 use sms_pdu::pdu::{DeliverPdu, StatusReportPdu};
-use sms_types::sms::{
-    SmsIncomingMessage, SmsMultipartHeader, SmsPartialDeliveryReport,
-};
+use sms_types::sms::{SmsIncomingMessage, SmsMultipartHeader, SmsPartialDeliveryReport};
 use tokio::sync::mpsc;
 use tracing::log::{debug, warn};
 
@@ -81,7 +79,8 @@ impl ModemEventHandlers {
                 let incoming = match deliver_pdu.get_message_data().decode_message() {
                     Ok(msg) => SmsIncomingMessage {
                         phone_number: get_real_number(deliver_pdu.originating_address.to_string()),
-                        user_data_header: msg.udh
+                        user_data_header: msg
+                            .udh
                             .map(|udh| SmsMultipartHeader::try_from(udh.as_bytes()))
                             .transpose()
                             .map_err(anyhow::Error::msg)?,

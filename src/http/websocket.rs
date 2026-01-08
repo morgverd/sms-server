@@ -1,7 +1,7 @@
 use futures::{SinkExt, StreamExt};
+use sms_types::events::{Event, EventKind};
 use std::collections::HashMap;
 use std::sync::Arc;
-use sms_types::events::{Event, EventKind};
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::{mpsc, RwLock};
 use tracing::log::{debug, error};
