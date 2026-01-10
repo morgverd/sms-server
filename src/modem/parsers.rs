@@ -1,5 +1,5 @@
-use crate::modem::types::{GNSSFixStatus, GNSSLocation};
 use anyhow::{anyhow, Result};
+use sms_types::gnss::{FixStatus, PositionReport};
 
 pub fn parse_cmgs_result(response: &str) -> Result<u8> {
     let cmgs_line = response
@@ -179,7 +179,7 @@ pub fn parse_cbc_response(response: &str) -> Result<(u8, u8, f32)> {
     Ok((status, charge, voltage))
 }
 
-pub fn parse_cgpsstatus_response(response: &str) -> Result<GNSSFixStatus> {
+pub fn parse_cgpsstatus_response(response: &str) -> Result<FixStatus> {
     let cgps_line = response
         .lines()
         .find(|line| line.trim().starts_with("+CGPSSTATUS:"))
@@ -190,10 +190,10 @@ pub fn parse_cgpsstatus_response(response: &str) -> Result<GNSSFixStatus> {
         .map(|(_, s)| s.trim())
         .ok_or(anyhow!("Missing CGPS status"))?;
 
-    GNSSFixStatus::try_from(status_str)
+    FixStatus::try_from(status_str).map_err(|e| anyhow!("{e:?}"))
 }
 
-pub fn parse_cgnsinf_response(response: &str, unsolicited: bool) -> Result<GNSSLocation> {
+pub fn parse_cgnsinf_response(response: &str, unsolicited: bool) -> Result<PositionReport> {
     let header = if unsolicited { "+UGNSINF" } else { "+CGNSINF" };
     let cgnsinf_line = response
         .lines()
@@ -206,7 +206,7 @@ pub fn parse_cgnsinf_response(response: &str, unsolicited: bool) -> Result<GNSSL
         .ok_or(anyhow!("Missing CGNSINF data"))?;
 
     let fields: Vec<&str> = data_str.split(",").collect();
-    GNSSLocation::try_from(fields)
+    PositionReport::try_from(fields).map_err(|e| anyhow!("{e:?}"))
 }
 
 #[cfg(test)]

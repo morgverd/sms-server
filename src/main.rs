@@ -3,7 +3,6 @@ mod config;
 mod events;
 mod modem;
 mod sms;
-mod types;
 mod webhooks;
 
 #[cfg(feature = "http-server")]

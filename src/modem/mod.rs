@@ -47,6 +47,7 @@ impl ModemManager {
             if let Err(e) = worker.initialize_and_run(command_rx).await {
                 error!("ModemWorker error: {e}");
             }
+            error!("ModemWorker exit");
         });
 
         Ok(handle)

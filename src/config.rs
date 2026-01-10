@@ -1,9 +1,9 @@
-use crate::events::EventType;
 use anyhow::{Context, Result};
 use base64::engine::general_purpose;
 use base64::Engine;
 use reqwest::header::HeaderMap;
 use serde::Deserialize;
+use sms_types::events::EventKind;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -117,7 +117,7 @@ pub struct ConfiguredWebhook {
 
     /// By default, this is only IncomingMessage.
     #[serde(default = "default_webhook_events")]
-    pub events: Vec<EventType>,
+    pub events: Vec<EventKind>,
 
     #[serde(default)]
     pub headers: Option<HashMap<String, String>>,
@@ -228,8 +228,8 @@ fn default_modem_cmd_buffer_size() -> usize {
 fn default_modem_read_buffer_size() -> usize {
     4096
 }
-fn default_webhook_events() -> Vec<EventType> {
-    vec![EventType::IncomingMessage]
+fn default_webhook_events() -> Vec<EventKind> {
+    vec![EventKind::IncomingMessage]
 }
 fn default_gnss_report_interval() -> u32 {
     0

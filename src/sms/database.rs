@@ -2,8 +2,8 @@
 
 use crate::config::DatabaseConfig;
 use crate::sms::encryption::SMSEncryption;
-use crate::types::{SMSDeliveryReport, SMSMessage, SMSStatus};
 use anyhow::{anyhow, Result};
+use sms_types::sms::{SmsDeliveryReport, SmsMessage};
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous};
 use sqlx::{Row, SqlitePool};
 use std::time::Duration;
@@ -89,7 +89,7 @@ impl SMSDatabase {
         Ok(())
     }
 
-    pub async fn insert_message(&self, message: &SMSMessage, is_final: bool) -> Result<i64> {
+    pub async fn insert_message(&self, message: &SmsMessage, is_final: bool) -> Result<i64> {
         let encrypted_content = self.encryption.encrypt(&message.message_content)?;
         let result = if is_final {
             sqlx::query(
@@ -104,7 +104,7 @@ impl SMSDatabase {
             .bind(encrypted_content)
             .bind(message.message_reference)
             .bind(message.is_outgoing)
-            .bind(u8::from(&message.status))
+            .bind(message.status)
             .execute(&self.pool)
             .await
             .map_err(|e| anyhow!(e))?;
@@ -167,7 +167,7 @@ impl SMSDatabase {
     pub async fn update_message_status(
         &self,
         message_id: i64,
-        status: &SMSStatus,
+        status: u8,
         completed: bool,
     ) -> Result<()> {
         let query = if completed {
@@ -179,7 +179,7 @@ impl SMSDatabase {
         };
 
         query
-            .bind(u8::from(status))
+            .bind(status)
             .bind(message_id)
             .execute(&self.pool)
             .await
@@ -252,7 +252,7 @@ impl SMSDatabase {
         limit: Option<u64>,
         offset: Option<u64>,
         reverse: bool,
-    ) -> Result<Vec<SMSMessage>> {
+    ) -> Result<Vec<SmsMessage>> {
         let query = build_pagination_query(
             "SELECT message_id, phone_number, message_content, message_reference, is_outgoing, status, created_at, completed_at FROM messages WHERE phone_number = ?",
             "created_at",
@@ -269,8 +269,8 @@ impl SMSDatabase {
 
         result
             .into_iter()
-            .map(|row| -> Result<SMSMessage> {
-                Ok(SMSMessage {
+            .map(|row| -> Result<SmsMessage> {
+                Ok(SmsMessage {
                     message_id: row.get("message_id"),
                     phone_number: row.get("phone_number"),
                     message_content: self
@@ -278,9 +278,9 @@ impl SMSDatabase {
                         .decrypt(&row.get::<String, _>("message_content"))?,
                     message_reference: row.get("message_reference"),
                     is_outgoing: row.get("is_outgoing"),
-                    status: SMSStatus::try_from(row.get::<u8, _>("status"))?,
                     created_at: row.get("created_at"),
                     completed_at: row.get("completed_at"),
+                    status: Some(row.get::<u8, _>("status")),
                 })
             })
             .collect::<Result<Vec<_>, _>>()
@@ -292,7 +292,7 @@ impl SMSDatabase {
         limit: Option<u64>,
         offset: Option<u64>,
         reverse: bool,
-    ) -> Result<Vec<SMSDeliveryReport>> {
+    ) -> Result<Vec<SmsDeliveryReport>> {
         let query = build_pagination_query(
             "SELECT report_id, message_id, status, is_final, created_at FROM delivery_reports WHERE message_id = ?",
             "created_at",

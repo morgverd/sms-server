@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "http-server"), allow(dead_code))]
 
-use crate::sms::types::SMSEncryptionKey;
+use crate::sms::SMSEncryptionKey;
 use aes_gcm::aead::Aead;
 use aes_gcm::aes::Aes256;
 use aes_gcm::{Aes256Gcm, AesGcm, KeyInit, Nonce};

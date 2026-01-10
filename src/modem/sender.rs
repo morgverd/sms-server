@@ -2,17 +2,25 @@
 
 use crate::modem::commands::{next_command_sequence, OutgoingCommand};
 use crate::modem::types::{ModemRequest, ModemResponse};
-use crate::types::SMSOutgoingMessage;
 use anyhow::Result;
 use anyhow::{anyhow, bail};
+use sms_pdu::pdu::PduAddress;
 use sms_pdu::{gsm_encoding, pdu};
+use sms_types::sms::SmsOutgoingMessage;
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use tracing::log::{debug, error, warn};
 
 const SEND_TIMEOUT: Duration = Duration::from_secs(90);
 
-fn create_sms_requests(message: &SMSOutgoingMessage) -> Result<Vec<ModemRequest>> {
+fn create_sms_requests(message: &SmsOutgoingMessage) -> Result<Vec<ModemRequest>> {
+    // Parse message number into PduAddress for sending.
+    let destination = message
+        .to
+        .parse::<PduAddress>()
+        .map_err(anyhow::Error::msg)?;
+    let validity_period = message.get_validity_period();
+
     let requests = gsm_encoding::GsmMessageData::encode_message(&message.content)
         .into_iter()
         .map(|data| {
@@ -27,17 +35,16 @@ fn create_sms_requests(message: &SMSOutgoingMessage) -> Result<Vec<ModemRequest>
                     rp: false,
                 },
                 message_id: 0,
-                destination: message.phone_number.clone(),
+                destination: destination.clone(),
                 dcs: pdu::DataCodingScheme::Standard {
                     compressed: false,
-                    class: message.flash.then_some(pdu::MessageClass::Silent),
+                    class: message
+                        .flash
+                        .unwrap_or(false)
+                        .then_some(pdu::MessageClass::Silent),
                     encoding: data.encoding,
                 },
-                validity_period: if message.flash {
-                    0
-                } else {
-                    message.get_validity_period()
-                },
+                validity_period,
                 user_data: data.bytes,
                 user_data_len: data.user_data_len,
             };
@@ -66,7 +73,7 @@ impl ModemSender {
     /// Returns: Result<(sent_all, Option<last_response>)>
     pub async fn send_sms(
         &self,
-        message: &SMSOutgoingMessage,
+        message: &SmsOutgoingMessage,
     ) -> Result<(bool, Option<ModemResponse>)> {
         // Send each send request for message, returning the last message.
         let mut last_response_opt = None;

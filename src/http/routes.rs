@@ -6,12 +6,12 @@ use crate::http::types::{
 use crate::http::websocket::{handle_websocket, WebSocketConnection};
 use crate::http::{get_modem_json_result, HttpState};
 use crate::modem::types::{ModemRequest, ModemResponse};
-use crate::types::{SMSDeliveryReport, SMSMessage, SMSOutgoingMessage};
 use anyhow::{anyhow, bail};
 use axum::extract::{Query, State, WebSocketUpgrade};
 use axum::http::StatusCode;
 use axum::response::Response;
 use sms_pdu::pdu::{PduAddress, TypeOfNumber};
+use sms_types::sms::{SmsDeliveryReport, SmsMessage, SmsOutgoingMessage};
 use std::str::FromStr;
 use tracing_subscriber::EnvFilter;
 
@@ -128,7 +128,7 @@ macro_rules! modem_extract {
 http_post_handler!(
     db_sms,
     PhoneNumberFetchRequest,
-    Vec<SMSMessage>,
+    Vec<SmsMessage>,
     |state, payload| {
         state
             .sms_manager
@@ -146,7 +146,7 @@ http_post_handler!(
 http_post_handler!(
     db_delivery_reports,
     MessageIdFetchRequest,
-    Vec<SMSDeliveryReport>,
+    Vec<SmsDeliveryReport>,
     |state, payload| {
         state
             .sms_manager
@@ -211,10 +211,10 @@ http_post_handler!(
     SendSmsRequest,
     SendSmsResponse,
     |state, payload| {
-        let phone_number = PduAddress::from_str(&payload.to)?;
+        let address = PduAddress::from_str(&payload.to)?;
         if state.config.send_international_format_only
             && !matches!(
-                phone_number.type_addr.type_of_number,
+                address.type_addr.type_of_number,
                 TypeOfNumber::International
             )
         {
@@ -222,13 +222,14 @@ http_post_handler!(
         }
 
         // Quick-fix to make sure the number is valid before attempting.
-        match phone_number.to_string().as_str() {
+        let to = address.to_string();
+        match to.as_str() {
             "+" | "" => bail!("Invalid phone number!"),
             _ => {}
         }
 
-        let outgoing = SMSOutgoingMessage {
-            phone_number,
+        let outgoing = SmsOutgoingMessage {
+            to,
             content: payload.content,
             flash: payload.flash,
             validity_period: payload.validity_period,
