@@ -85,7 +85,7 @@ impl AppHandles {
                 info!("Starting task: {name}");
                 Box::pin(async move {
                     match handle.await {
-                        Ok(()) => info!("{name} task completed!"),
+                        Ok(_) => error!("{name} task completed!"),
                         Err(e) => error!("{name} task failed: {e:?}!"),
                     }
                 })

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::{mpsc, RwLock};
-use tracing::log::{debug, error};
+use tracing::log::{debug, error, warn};
 use uuid::Uuid;
 
 pub type WebSocketConnection = (axum::extract::ws::WebSocket, Option<Vec<EventKind>>);
@@ -142,7 +142,22 @@ pub async fn handle_websocket(connection: WebSocketConnection, manager: WebSocke
                     break;
                 }
                 Err(e) => {
-                    error!("WebSocket error for {connection_id}: {e}");
+                    // Check for common disconnection errors.
+                    let is_expected_disconnect = std::error::Error::source(&e)
+                        .and_then(|e| e.downcast_ref::<std::io::Error>())
+                        .is_some_and(|io_err| {
+                            matches!(
+                                io_err.kind(),
+                                std::io::ErrorKind::UnexpectedEof
+                                    | std::io::ErrorKind::ConnectionReset
+                            )
+                        });
+
+                    if is_expected_disconnect {
+                        debug!("WebSocket connection closed: {connection_id}");
+                    } else {
+                        warn!("WebSocket error for {connection_id}: {e}");
+                    }
                     break;
                 }
                 _ => {}
