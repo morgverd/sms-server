@@ -2963,6 +2963,8 @@ dependencies = [
 [[package]]
 name = "sms-pdu"
 version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64627d8ad91bdec4c7500ae826484a84cb1800ef0bf9a44d5641266b341db6d9"
 dependencies = [
  "encoding",
  "num",
@@ -2973,7 +2975,7 @@ dependencies = [
 
 [[package]]
 name = "sms-server"
-version = "3.1.1"
+version = "3.0.0"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -3011,7 +3013,9 @@ dependencies = [
 
 [[package]]
 name = "sms-types"
-version = "0.4.1"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92af55f4e45a8224ef4331940ea84f57d9b3608181371de4744564d9da55d217"
 dependencies = [
  "serde",
  "serde_json",

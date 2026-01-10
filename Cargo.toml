@@ -1,6 +1,6 @@
 [package]
 name = "sms-server"
-version = "3.1.1"
+version = "3.0.0"
 edition = "2021"
 license = "AGPL-3.0-only"
 build = "build.rs"
@@ -37,8 +37,8 @@ tls-rustls = ["dep:rustls", "reqwest/rustls-tls", "sentry?/rustls", "axum-server
 tls-native = ["reqwest/native-tls", "sentry?/native-tls", "axum-server?/tls-openssl"]
 
 [dependencies]
-sms-pdu = { path = "../sms-pdu" }
-sms-types = { features = ["sqlx"], path = "../sms-types" }
+sms-pdu = "1.1.0"
+sms-types = { version = "1.0.0", features = ["sqlx"] }
 tokio = { version = "1.45.1", features = ["rt-multi-thread", "parking_lot"] }
 serde = { version = "1.0.219", features = ["derive"] }
 sqlx = { version = "0.8.6" }

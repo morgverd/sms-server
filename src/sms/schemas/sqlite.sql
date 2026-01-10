@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS messages (
     message_content TEXT NOT NULL,
     message_reference INTEGER CHECK (message_reference >= 0 AND message_reference <= 255),
     is_outgoing BOOLEAN NOT NULL,
-    status INTEGER NOT NULL CHECK (status >= 0 AND status <= 4),
+    status INTEGER DEFAULT NULL,
     created_at INTEGER NOT NULL DEFAULT (unixepoch()),
     completed_at INTEGER DEFAULT NULL
 );
