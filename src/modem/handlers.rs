@@ -77,15 +77,24 @@ impl ModemEventHandlers {
 
                 // Decode incoming message data to get user data header which is required for multipart messages.
                 let incoming = match deliver_pdu.get_message_data().decode_message() {
-                    Ok(msg) => SmsIncomingMessage {
-                        phone_number: get_real_number(deliver_pdu.originating_address.to_string()),
-                        user_data_header: msg
+                    Ok(msg) => {
+                        // Find multipart component, convert into a SmsMultipartHeader.
+                        let user_data_header = msg
                             .udh
-                            .map(|udh| SmsMultipartHeader::try_from(udh.as_bytes()))
-                            .transpose()
-                            .map_err(anyhow::Error::msg)?,
-                        content: msg.text,
-                    },
+                            .and_then(|udh| udh.components.into_iter().find(|c| c.id == 0x00))
+                            .map(|component| {
+                                SmsMultipartHeader::try_from(component.data).map_err(|e| anyhow!(e))
+                            })
+                            .transpose()?;
+
+                        SmsIncomingMessage {
+                            phone_number: get_real_number(
+                                deliver_pdu.originating_address.to_string(),
+                            ),
+                            user_data_header,
+                            content: msg.text,
+                        }
+                    }
                     Err(e) => bail!("Failed to parse incoming SMS data: {:?}", e),
                 };
 
