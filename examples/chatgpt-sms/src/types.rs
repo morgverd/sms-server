@@ -52,4 +52,3 @@ pub struct MessageTask {
     pub phone_number: String,
     pub message_content: String,
 }
-

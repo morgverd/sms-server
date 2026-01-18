@@ -1,17 +1,17 @@
-use std::env::var;
-use futures_util::{SinkExt, StreamExt};
-use std::time::Duration;
 use anyhow::{Context, Result};
+use futures_util::{SinkExt, StreamExt};
 use log::{info, warn};
+use std::env::var;
+use std::time::Duration;
 use tokio::fs::OpenOptions;
 use tokio::io::{AsyncWriteExt, BufWriter};
-use tokio::time::sleep;
 use tokio::sync::broadcast;
+use tokio::time::sleep;
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
 
 #[cfg(unix)]
-use tokio::signal::unix::{signal, SignalKind};
+use tokio::signal::unix::{SignalKind, signal};
 
 #[cfg(not(unix))]
 use tokio::signal::ctrl_c;
@@ -21,14 +21,14 @@ const FILE_BUFFER_SIZE: usize = 64 * 1024;
 struct WebSocketLogger {
     url: String,
     log_file_path: String,
-    reconnect_delay: Duration
+    reconnect_delay: Duration,
 }
 impl WebSocketLogger {
     pub fn new(url: String, log_file_path: String) -> Self {
         Self {
             url,
             log_file_path,
-            reconnect_delay: Duration::from_secs(5)
+            reconnect_delay: Duration::from_secs(5),
         }
     }
 
@@ -48,9 +48,12 @@ impl WebSocketLogger {
                 Ok(_) => {
                     info!("WebSocket connection closed normally");
                     break;
-                },
+                }
                 Err(e) => {
-                    warn!("WebSocket error: {}. Reconnecting in {:?}...", e, self.reconnect_delay);
+                    warn!(
+                        "WebSocket error: {}. Reconnecting in {:?}...",
+                        e, self.reconnect_delay
+                    );
                     tokio::select! {
                         _ = sleep(self.reconnect_delay) => {},
                         _ = shutdown_rx.recv() => {
@@ -144,9 +147,12 @@ async fn main() -> Result<()> {
     tokio::spawn(async move {
         #[cfg(unix)]
         {
-            let mut sigint = signal(SignalKind::interrupt()).expect("Failed to register SIGINT handler");
-            let mut sigterm = signal(SignalKind::terminate()).expect("Failed to register SIGTERM handler");
-            let mut sigquit = signal(SignalKind::quit()).expect("Failed to register SIGQUIT handler");
+            let mut sigint =
+                signal(SignalKind::interrupt()).expect("Failed to register SIGINT handler");
+            let mut sigterm =
+                signal(SignalKind::terminate()).expect("Failed to register SIGTERM handler");
+            let mut sigquit =
+                signal(SignalKind::quit()).expect("Failed to register SIGQUIT handler");
 
             tokio::select! {
                 _ = sigint.recv() => {
@@ -166,11 +172,11 @@ async fn main() -> Result<()> {
             match ctrl_c().await {
                 Ok(()) => {
                     info!("Received CTRL+C signal");
-                },
+                }
                 Err(err) => {
                     warn!("Unable to listen for shutdown signal: {}", err);
                     return;
-                },
+                }
             }
         }
 
@@ -178,7 +184,8 @@ async fn main() -> Result<()> {
     });
 
     let logger = WebSocketLogger::new(
-        var("WEBSOCKET_LOGGER_URL").context("Missing required WEBSOCKET_LOGGER_URL environment variable!")?,
+        var("WEBSOCKET_LOGGER_URL")
+            .context("Missing required WEBSOCKET_LOGGER_URL environment variable!")?,
         var("WEBSOCKET_LOGGER_FILEPATH").unwrap_or("websocket_messages.log".to_string()),
     );
 
