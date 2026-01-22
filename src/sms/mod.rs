@@ -91,11 +91,9 @@ impl SMSManager {
 
         // Broadcast event.
         if let Some(broadcaster) = &self.broadcaster {
-            broadcaster
-                .broadcast(Event::OutgoingMessage(
-                    new_message.with_message_id(message_id_result.as_ref().ok().copied()),
-                ))
-                .await;
+            broadcaster.broadcast(Event::OutgoingMessage(
+                new_message.with_message_id(message_id_result.as_ref().ok().copied()),
+            ));
         }
 
         match message_id_result {
@@ -147,11 +145,9 @@ impl SMSReceiver {
 
         // Send incoming event.
         if let Some(broadcaster) = &self.manager.broadcaster {
-            broadcaster
-                .broadcast(Event::IncomingMessage(
-                    message.with_message_id(row_id_result.as_ref().ok().copied()),
-                ))
-                .await;
+            broadcaster.broadcast(Event::IncomingMessage(
+                message.with_message_id(row_id_result.as_ref().ok().copied()),
+            ));
         }
 
         Some(row_id_result)
@@ -179,9 +175,7 @@ impl SMSReceiver {
 
         // Send delivery report event.
         if let Some(broadcaster) = &self.manager.broadcaster {
-            broadcaster
-                .broadcast(Event::DeliveryReport { message_id, report })
-                .await;
+            broadcaster.broadcast(Event::DeliveryReport { message_id, report });
         }
 
         self.manager

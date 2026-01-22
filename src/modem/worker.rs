@@ -242,7 +242,7 @@ impl ModemWorker {
         }
 
         let previous = self.status.clone();
-        self.status = status.clone();
+        self.status.clone_from(&status);
 
         // Send message outside of modem for webhooks etc.
         let message = ModemIncomingMessage::ModemStatusUpdate {

@@ -1,9 +1,9 @@
+use dashmap::DashMap;
 use futures::{SinkExt, StreamExt};
 use sms_types::events::{Event, EventKind};
-use std::collections::HashMap;
 use std::sync::Arc;
+use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedSender;
-use tokio::sync::{mpsc, RwLock};
 use tracing::log::{debug, error, warn};
 use uuid::Uuid;
 
@@ -12,52 +12,44 @@ type StoredConnection = (UnboundedSender<axum::extract::ws::Utf8Bytes>, u8); // 
 
 #[derive(Clone)]
 pub struct WebSocketManager {
-    connections: Arc<RwLock<HashMap<String, StoredConnection>>>,
+    connections: Arc<DashMap<String, StoredConnection>>,
 }
 impl WebSocketManager {
     pub fn new() -> Self {
         Self {
-            connections: Arc::new(RwLock::new(HashMap::new())),
+            connections: Arc::new(DashMap::new()),
         }
     }
 
-    pub async fn broadcast(&self, event: Event) -> usize {
+    pub fn broadcast(&self, event: Event) -> usize {
         let message = match serde_json::to_string(&event) {
             Ok(msg) => axum::extract::ws::Utf8Bytes::from(msg),
             Err(e) => {
-                error!("Couldn't broadcast event '{event:?}' due to serialization error: {e} ");
+                error!("Couldn't broadcast event '{event:?}' due to serialization error: {e}");
                 return 0;
             }
         };
 
         let event_bit = EventKind::from(&event).to_bit();
-        let connections = self.connections.read().await;
         let mut successful_sends = 0;
-        let mut failed_connections = Vec::new();
 
-        // Send events to all with matching events.
-        for (id, (sender, event_mask)) in connections.iter() {
-            if event_mask & event_bit != 0 {
-                if sender.send(message.clone()).is_ok() {
-                    successful_sends += 1;
-                } else {
-                    failed_connections.push(id.clone());
-                }
+        self.connections.retain(|_id, (sender, event_mask)| {
+            if *event_mask & event_bit == 0 {
+                return true;
             }
-        }
-        drop(connections);
 
-        // Cleanup failed connections (read lock dropped before acquiring write).
-        if !failed_connections.is_empty() {
-            let mut connections = self.connections.write().await;
-            for id in failed_connections {
-                connections.remove(&id);
+            if sender.send(message.clone()).is_ok() {
+                successful_sends += 1;
+                true
+            } else {
+                false
             }
-        }
+        });
+
         successful_sends
     }
 
-    pub async fn add_connection(
+    pub fn add_connection(
         &self,
         tx: UnboundedSender<axum::extract::ws::Utf8Bytes>,
         events: Option<Vec<EventKind>>,
@@ -69,18 +61,15 @@ impl WebSocketManager {
 
         loop {
             let id = Uuid::new_v4().to_string();
-            let mut connections = self.connections.write().await;
-
-            if !connections.contains_key(&id) {
-                connections.insert(id.clone(), (tx, event_mask));
+            if !self.connections.contains_key(&id) {
+                self.connections.insert(id.clone(), (tx, event_mask));
                 return id;
             }
-            drop(connections);
         }
     }
 
-    pub async fn remove_connection(&self, id: &str) {
-        self.connections.write().await.remove(id);
+    pub fn remove_connection(&self, id: &str) {
+        self.connections.remove(id);
     }
 }
 
@@ -90,7 +79,7 @@ pub async fn handle_websocket(connection: WebSocketConnection, manager: WebSocke
     let (tx, mut rx) = mpsc::unbounded_channel::<axum::extract::ws::Utf8Bytes>();
 
     // Add connection.
-    let connection_id = manager.add_connection(tx, connection.1).await;
+    let connection_id = manager.add_connection(tx, connection.1);
     debug!("WebSocket connection established: {connection_id}");
 
     // Writer task.
@@ -171,6 +160,6 @@ pub async fn handle_websocket(connection: WebSocketConnection, manager: WebSocke
     }
 
     // Remove connection after either task finishes.
-    manager.remove_connection(&connection_id_for_tx).await;
+    manager.remove_connection(&connection_id_for_tx);
     debug!("WebSocket connection cleaned up: {connection_id_for_tx}");
 }

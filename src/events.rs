@@ -49,7 +49,7 @@ impl EventBroadcaster {
     }
 
     #[inline]
-    pub async fn broadcast(&self, event: Event) {
+    pub fn broadcast(&self, event: Event) {
         debug!("Broadcasting event: {event:?}");
         if let Some(webhooks) = &self.webhooks {
             webhooks.send(event.clone());
@@ -57,7 +57,7 @@ impl EventBroadcaster {
 
         #[cfg(feature = "http-server")]
         if let Some(websocket) = &self.websocket {
-            websocket.broadcast(event).await;
+            websocket.broadcast(event);
         }
     }
 }

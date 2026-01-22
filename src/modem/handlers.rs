@@ -82,10 +82,9 @@ impl ModemEventHandlers {
                         let user_data_header = msg
                             .udh
                             .and_then(|udh| udh.components.into_iter().find(|c| c.id == 0x00))
-                            .map(|component| {
-                                SmsMultipartHeader::try_from(component.data).map_err(|e| anyhow!(e))
-                            })
-                            .transpose()?;
+                            .map(|component| SmsMultipartHeader::try_from(component.data))
+                            .transpose()
+                            .map_err(|e| anyhow!(e))?;
 
                         SmsIncomingMessage {
                             phone_number: get_real_number(

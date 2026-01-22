@@ -205,7 +205,7 @@ pub fn parse_cgnsinf_response(response: &str, unsolicited: bool) -> Result<Posit
         .map(|(_, s)| s.trim())
         .ok_or(anyhow!("Missing CGNSINF data"))?;
 
-    let fields: Vec<&str> = data_str.split(",").collect();
+    let fields: Vec<&str> = data_str.split(',').collect();
     PositionReport::try_from(fields).map_err(|e| anyhow!("{e:?}"))
 }
 

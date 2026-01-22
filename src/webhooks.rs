@@ -69,10 +69,10 @@ fn load_certificate(certificate_path: &std::path::Path) -> Result<reqwest::tls::
             "pem" => return Ok(reqwest::tls::Certificate::from_pem(&cert_data)?),
             "der" => return Ok(reqwest::tls::Certificate::from_der(&cert_data)?),
             "crt" => {
-                if cert_data.starts_with(b"-----BEGIN") {
-                    return Ok(reqwest::tls::Certificate::from_pem(&cert_data)?);
+                return if cert_data.starts_with(b"-----BEGIN") {
+                    reqwest::tls::Certificate::from_pem(&cert_data).map_err(anyhow::Error::from)
                 } else {
-                    return Ok(reqwest::tls::Certificate::from_der(&cert_data)?);
+                    reqwest::tls::Certificate::from_der(&cert_data).map_err(anyhow::Error::from)
                 }
             }
             _ => {}

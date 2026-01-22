@@ -113,7 +113,7 @@ impl WebSocketQuery {
         }
 
         let events: Vec<EventKind> = events_str
-            .split(",")
+            .split(',')
             .filter_map(|s| EventKind::try_from(s.trim()).ok())
             .collect::<HashSet<_>>()
             .into_iter()

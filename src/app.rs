@@ -147,19 +147,15 @@ impl AppHandles {
             }
             ModemIncomingMessage::ModemStatusUpdate { previous, current } => {
                 if let Some(broadcaster) = broadcaster {
-                    broadcaster
-                        .broadcast(Event::ModemStatusUpdate {
-                            previous: previous.into(),
-                            current: current.into(),
-                        })
-                        .await;
+                    broadcaster.broadcast(Event::ModemStatusUpdate {
+                        previous: previous.into(),
+                        current: current.into(),
+                    });
                 }
             }
             ModemIncomingMessage::GNSSPositionReport(location) => {
                 if let Some(broadcaster) = broadcaster {
-                    broadcaster
-                        .broadcast(Event::GnssPositionReport(location))
-                        .await;
+                    broadcaster.broadcast(Event::GnssPositionReport(location));
                 }
             }
             _ => warn!("Unhandled message type: {message:?}"),
