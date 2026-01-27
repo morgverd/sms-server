@@ -88,26 +88,16 @@ pub async fn handle_websocket(connection: WebSocketConnection, manager: WebSocke
     let tx_task = tokio::spawn(async move {
         loop {
             tokio::select! {
-                // Outgoing messages.
                 msg = rx.recv() => {
-                    match msg {
-                        Some(msg) => {
-                            if sender.send(axum::extract::ws::Message::Text(msg)).await.is_err() {
-                                break;
-                            }
-                        }
-                        None => break // Channel closed
+                    let Some(msg) = msg else { return }; // Channel closed
+                    if sender.send(axum::extract::ws::Message::Text(msg)).await.is_err() {
+                        return;
                     }
                 },
-                // Handle ping responses (pong messages).
                 ping_data = ping_rx.recv() => {
-                    match ping_data {
-                        Some(data) => {
-                            if sender.send(axum::extract::ws::Message::Pong(data)).await.is_err() {
-                                break;
-                            }
-                        }
-                        None => break // Channel closed
+                    let Some(data) = ping_data else { return }; // Channel closed
+                    if sender.send(axum::extract::ws::Message::Pong(data)).await.is_err() {
+                        return;
                     }
                 }
             }
