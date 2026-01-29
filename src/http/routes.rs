@@ -569,11 +569,10 @@ pub async fn sys_set_log_level(
     State(state): State<HttpState>,
     Json(payload): Json<crate::http::types::SetLogLevelRequest>,
 ) -> HttpResult<bool> {
-    let filter = EnvFilter::from_str(&payload.level)
-        .map_err(|e| HttpError {
-            status: StatusCode::BAD_REQUEST,
-            message: e.to_string()
-        })?;
+    let filter = EnvFilter::from_str(&payload.level).map_err(|e| HttpError {
+        status: StatusCode::BAD_REQUEST,
+        message: e.to_string(),
+    })?;
 
     tracing::log::info!("Setting log level to {filter} via API");
     let success = state
@@ -582,7 +581,7 @@ pub async fn sys_set_log_level(
         .map(|_| true)
         .map_err(|e| HttpError {
             status: StatusCode::INTERNAL_SERVER_ERROR,
-            message: e.to_string()
+            message: e.to_string(),
         })?;
 
     Ok(HttpSuccess(success))
