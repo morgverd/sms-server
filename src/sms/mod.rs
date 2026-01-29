@@ -10,7 +10,7 @@ use crate::modem::sender::ModemSender;
 use crate::modem::types::{ModemRequest, ModemResponse};
 use crate::sms::database::SMSDatabase;
 use crate::sms::multipart::SMSMultipartMessages;
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use num_traits::cast::FromPrimitive;
 use sms_pdu::pdu::MessageStatus;
 use sms_types::events::Event;
@@ -50,13 +50,12 @@ impl SMSManager {
         &self,
         message: SmsOutgoingMessage,
     ) -> Result<(Option<i64>, ModemResponse)> {
-        let last_response = match self.modem.send_sms(&message).await? {
-            // If all requests were not sent, then don't store any in the database as it must
-            // be a failed multipart message. Instead, return the error response.
-            (false, Some(response)) => return Ok((None, response)),
-            (true, Some(response)) => response,
-            _ => bail!("Missing any valid SendSMS response!"),
-        };
+        let (success, last_response) = self.modem.send_sms(&message).await?;
+        let last_response =
+            last_response.ok_or_else(|| anyhow!("Missing any valid SendSMS response!"))?;
+        if !success {
+            return Ok((None, last_response));
+        }
         debug!("SMSManager last_response: {last_response:?}");
 
         let mut new_message = SmsMessage::from(&message);
@@ -72,34 +71,26 @@ impl SMSManager {
             _ => bail!("Got invalid ModemResponse back from sending SMS message!"),
         };
 
-        // Store sent message + send failure in database.
-        let message_id_result = match self
+        // Store sent message in database
+        let message_id = self
             .database
             .insert_message(&new_message, send_failure.is_some())
-            .await
-        {
-            Ok(row_id) => {
-                if let Some(failure) = send_failure {
-                    if let Err(e) = self.database.insert_send_failure(row_id, failure).await {
-                        error!("Failed to store send failure! {e:?}");
-                    }
-                }
-                Ok(row_id)
-            }
-            Err(e) => Err(e),
-        };
+            .await?;
 
-        // Broadcast event.
+        // Store send failure if present
+        if let Some(failure) = send_failure {
+            if let Err(e) = self.database.insert_send_failure(message_id, failure).await {
+                error!("Failed to store send failure! {e:?}");
+            }
+        }
+
+        // Broadcast event
         if let Some(broadcaster) = &self.broadcaster {
             broadcaster.broadcast(Event::OutgoingMessage(
-                new_message.with_message_id(message_id_result.as_ref().ok().copied()),
+                new_message.with_message_id(Some(message_id)),
             ));
         }
-
-        match message_id_result {
-            Ok(message_id) => Ok((Some(message_id), last_response)),
-            Err(e) => Err(e),
-        }
+        Ok((Some(message_id), last_response))
     }
 
     pub async fn send_command(&self, request: ModemRequest) -> Result<ModemResponse> {

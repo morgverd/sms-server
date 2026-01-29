@@ -2,20 +2,25 @@ mod routes;
 mod types;
 pub mod websocket;
 
+#[cfg(feature = "openapi")]
+mod openapi;
+
 use crate::config::HTTPConfig;
 use crate::http::routes::*;
-use crate::http::types::{HttpResponse, JsonResult};
+use crate::http::types::HttpError;
 use crate::http::websocket::WebSocketManager;
-use crate::modem::types::{ModemRequest, ModemResponse};
 use crate::sms::SMSManager;
 use crate::TracingReloadHandle;
 use anyhow::{bail, Result};
-use axum::http::{HeaderName, HeaderValue};
+use axum::http::{HeaderName, HeaderValue, StatusCode};
 use axum::routing::{get, post};
 use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
 use tower_http::set_header::SetResponseHeaderLayer;
-use tracing::log::{info, warn};
+use tracing::log::{debug, warn};
+
+#[cfg(feature = "openapi")]
+use utoipa::OpenApi;
 
 #[cfg(feature = "sentry")]
 use sentry::integrations::tower::{NewSentryLayer, SentryHttpLayer};
@@ -28,46 +33,28 @@ pub struct HttpState {
     pub websocket: Option<WebSocketManager>,
 }
 
-async fn get_modem_json_result(
-    state: HttpState,
-    request: ModemRequest,
-) -> JsonResult<ModemResponse> {
-    let response = match state.sms_manager.send_command(request).await {
-        Ok(response) => response,
-        Err(e) => {
-            return Ok(axum::response::Json(HttpResponse {
-                success: false,
-                response: None,
-                error: Some(e.to_string()),
-            }))
-        }
-    };
-
-    Ok(axum::response::Json(HttpResponse {
-        success: true,
-        response: Some(response),
-        error: None,
-    }))
-}
-
 async fn auth_middleware(
     axum::extract::State(expected_token): axum::extract::State<String>,
     headers: axum::http::HeaderMap,
     request: axum::http::Request<axum::body::Body>,
     next: axum::middleware::Next,
-) -> Result<axum::response::Response, axum::http::StatusCode> {
-    let auth_header = headers
-        .get("authorization")
-        .ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
+) -> Result<axum::response::Response, HttpError> {
+    let auth_header = headers.get("authorization").ok_or(HttpError {
+        status: StatusCode::UNAUTHORIZED,
+        message: "Missing authorization header".to_string(),
+    })?;
 
-    let auth_str = auth_header
-        .to_str()
-        .map_err(|_| axum::http::StatusCode::BAD_REQUEST)?
-        .trim();
+    let auth_str = auth_header.to_str().map_err(|_| HttpError {
+        status: StatusCode::BAD_REQUEST,
+        message: "Invalid authorization header".to_string(),
+    })?;
 
     let token = auth_str.strip_prefix("Bearer ").unwrap_or(auth_str).trim();
     if token != expected_token {
-        return Err(axum::http::StatusCode::UNAUTHORIZED);
+        return Err(HttpError {
+            status: StatusCode::UNAUTHORIZED,
+            message: "Invalid token".to_string(),
+        });
     }
 
     Ok(next.run(request).await)
@@ -81,11 +68,11 @@ pub fn create_app(
     _tracing_reload: TracingReloadHandle,
 ) -> Result<axum::Router> {
     let mut router = axum::Router::new()
-        .route("/db/sms", post(db_sms))
+        .route("/db/messages", post(db_messages))
         .route("/db/latest-numbers", post(db_latest_numbers))
         .route("/db/delivery-reports", post(db_delivery_reports))
-        .route("/db/friendly-names/set", post(friendly_names_set))
-        .route("/db/friendly-names/get", post(friendly_names_get))
+        .route("/db/friendly-names/set", post(db_friendly_names_set))
+        .route("/db/friendly-names/get", post(db_friendly_names_get))
         .route("/sms/send", post(sms_send))
         .route("/sms/network-status", get(sms_get_network_status))
         .route("/sms/signal-strength", get(sms_get_signal_strength))
@@ -106,7 +93,7 @@ pub fn create_app(
 
     // Add optional websocket route if there is a manager.
     if websocket.is_some() {
-        info!("Adding WebSocket broadcaster HTTP route!");
+        debug!("Adding WebSocket broadcaster HTTP route!");
         router = router.route("/ws", get(websocket_upgrade));
     }
 
@@ -114,7 +101,7 @@ pub fn create_app(
     if config.require_authentication {
         match std::env::var("SMS_HTTP_AUTH_TOKEN") {
             Ok(token) => {
-                info!("Adding HTTP authentication middleware!");
+                debug!("Adding HTTP authentication middleware!");
                 router = router.layer(
                     axum::middleware::from_fn_with_state(token, auth_middleware)
                 );
@@ -125,10 +112,19 @@ pub fn create_app(
         warn!("Serving HTTP without authentication middleware, as require_authentication is disabled!");
     }
 
+    #[cfg(feature = "openapi")]
+    {
+        debug!("Adding OpenAPI SwaggerUi at /docs!");
+        router = router.merge(
+            utoipa_swagger_ui::SwaggerUi::new("/docs")
+                .url("/docs/openapi.json", openapi::ApiDoc::openapi()),
+        );
+    }
+
     // If Sentry is enabled, include axum integration layers.
     #[cfg(feature = "sentry")]
     if _sentry {
-        info!("Adding Sentry HTTP layer!");
+        debug!("Adding Sentry HTTP layer!");
         router = router
             .layer(
                 ServiceBuilder::new()

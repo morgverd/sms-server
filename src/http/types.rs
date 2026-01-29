@@ -1,19 +1,57 @@
 use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde::{Deserialize, Serialize};
 use sms_types::events::EventKind;
 use std::collections::HashSet;
 
-pub type JsonResult<T> = Result<Json<HttpResponse<T>>, (StatusCode, Json<HttpResponse<T>>)>;
-
 #[derive(Serialize)]
-pub struct HttpResponse<T> {
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+pub struct SuccessfulResponse<T> {
     pub success: bool,
-    pub response: Option<T>,
-    pub error: Option<String>,
+    pub response: T,
 }
 
+#[derive(Serialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+pub struct ErrorResponse {
+    #[cfg_attr(feature = "openapi", schema(default = false))]
+    pub success: bool,
+    pub error: String,
+}
+
+pub struct HttpSuccess<T>(pub T);
+impl<T: Serialize> IntoResponse for HttpSuccess<T> {
+    fn into_response(self) -> Response {
+        Json(SuccessfulResponse {
+            success: true,
+            response: self.0,
+        })
+        .into_response()
+    }
+}
+
+pub struct HttpError {
+    pub status: StatusCode,
+    pub message: String,
+}
+impl IntoResponse for HttpError {
+    fn into_response(self) -> Response {
+        (
+            self.status,
+            Json(ErrorResponse {
+                success: false,
+                error: self.message,
+            }),
+        )
+            .into_response()
+    }
+}
+
+pub type HttpResult<T> = Result<HttpSuccess<T>, HttpError>;
+
 #[derive(Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct PhoneNumberFetchRequest {
     pub phone_number: String,
 
@@ -28,6 +66,7 @@ pub struct PhoneNumberFetchRequest {
 }
 
 #[derive(Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct MessageIdFetchRequest {
     pub message_id: i64,
 
@@ -42,6 +81,7 @@ pub struct MessageIdFetchRequest {
 }
 
 #[derive(Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct GlobalFetchRequest {
     #[serde(default)]
     pub limit: Option<u64>,
@@ -54,6 +94,7 @@ pub struct GlobalFetchRequest {
 }
 
 #[derive(Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct SendSmsRequest {
     pub to: String,
     pub content: String,
@@ -69,39 +110,26 @@ pub struct SendSmsRequest {
 }
 
 #[derive(Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct SetLogLevelRequest {
     pub level: String,
 }
 
-#[derive(Serialize)]
-pub struct SendSmsResponse {
-    pub message_id: i64,
-    pub reference_id: u8,
-}
-
-#[derive(Serialize)]
-pub struct SmsDeviceInfo {
-    pub version: String,
-    pub phone_number: Option<String>,
-    pub service_provider: Option<String>,
-    pub network_operator: Option<(u8, u8, String)>,
-    pub network_status: Option<(u8, u8)>,
-    pub battery: Option<(u8, u8, f32)>,
-    pub signal: Option<(i32, i32)>,
-}
-
 #[derive(Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct SetFriendlyNameRequest {
     pub phone_number: String,
     pub friendly_name: Option<String>,
 }
 
 #[derive(Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct GetFriendlyNameRequest {
     pub phone_number: String,
 }
 
 #[derive(Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::IntoParams))]
 pub struct WebSocketQuery {
     pub events: Option<String>,
 }

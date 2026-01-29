@@ -42,6 +42,7 @@ fn get_version() -> String {
     let mut suffixes = Vec::new();
     let feature_names = vec![
         ("GPIO", "g"),
+        ("OPENAPI", "o"),
         ("HTTP_SERVER", "h"),
         ("SENTRY", "s"),
         ("TLS_NATIVE", "tn"),

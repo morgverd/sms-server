@@ -10,28 +10,121 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-test-
+
+      - name: Run tests
+        run: cargo test
+
+  generate-openapi:
+    name: Generate OpenAPI Spec
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-openapi-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-openapi-
+
+      - name: Generate OpenAPI spec
+        run: cargo test export_openapi_spec --features openapi -- --nocapture
+
+      - name: Upload OpenAPI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-spec
+          path: openapi.json
+
+  deploy-docs:
+    name: Deploy OpenAPI Swagger Docs
+    needs: generate-openapi
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download OpenAPI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: openapi-spec
+          path: docs/swagger/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/swagger/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
   build:
     name: Build for ${{ matrix.target }}
+    needs: test
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          - target: x86_64-unknown-linux-gnu
+          - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             artifact_name: sms-server
             asset_name: sms-server-linux-x64
             features: ""
-          - target: x86_64-unknown-linux-gnu
+          - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             artifact_name: sms-server
             asset_name: sms-server-linux-x64-sentry
             features: "--features sentry"
-          - target: aarch64-unknown-linux-gnu
+          - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
             artifact_name: sms-server
             asset_name: sms-server-linux-aarch64
             features: ""
-          - target: aarch64-unknown-linux-gnu
+          - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
             artifact_name: sms-server
             asset_name: sms-server-linux-aarch64-sentry
@@ -46,11 +139,13 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Install cross-compilation dependencies (Linux ARM64)
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
+      - name: Install musl tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+          sudo apt-get install -y musl-tools
+
+      - name: Install cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
 
       - name: Cache cargo registry
         uses: actions/cache@v3
@@ -64,16 +159,7 @@ jobs:
             ${{ runner.os }}-${{ matrix.target }}-cargo-
 
       - name: Build binary
-        run: cargo build --release --target ${{ matrix.target }} ${{ matrix.features }}
-
-      - name: Strip binary (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]]; then
-            aarch64-linux-gnu-strip target/${{ matrix.target }}/release/sms-server
-          else
-            strip target/${{ matrix.target }}/release/sms-server
-          fi
+        run: cross build --release --target ${{ matrix.target }} ${{ matrix.features }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -83,7 +169,7 @@ jobs:
 
   release:
     name: Create Release
-    needs: build
+    needs: [build, generate-openapi]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
 
@@ -97,7 +183,7 @@ jobs:
           path: artifacts
 
       - name: Display structure of downloaded files
-        run: ls -la artifacts/
+        run: ls -laR artifacts/
 
       - name: Create release
         id: create_release
@@ -119,6 +205,9 @@ jobs:
             - **Linux x64 with Sentry**: sms-server-linux-x64-sentry
             - **Linux ARM64**: sms-server-linux-aarch64
             - **Linux ARM64 with Sentry**: sms-server-linux-aarch64-sentry
+            - **OpenAPI Spec**: openapi.json
+            
+            All binaries are statically linked (musl) and should work on any Linux distribution.
 
       - name: Upload Linux x64 binary
         uses: actions/upload-release-asset@v1
@@ -159,3 +248,13 @@ jobs:
           asset_path: artifacts/sms-server-linux-aarch64-sentry/sms-server
           asset_name: sms-server-linux-aarch64-sentry
           asset_content_type: application/octet-stream
+
+      - name: Upload OpenAPI spec
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/openapi-spec/openapi.json
+          asset_name: openapi.json
+          asset_content_type: application/json

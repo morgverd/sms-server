@@ -178,6 +178,7 @@ impl AppHandles {
         let address = config.address;
         let tls_config = config.tls.clone();
 
+        debug!("Creating HTTP server on {address}");
         let app = create_app(
             config,
             websocket,
