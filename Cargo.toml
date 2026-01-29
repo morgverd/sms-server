@@ -1,6 +1,6 @@
 [package]
 name = "sms-server"
-version = "3.4.4"
+version = "3.4.5"
 edition = "2021"
 license = "AGPL-3.0-only"
 build = "build.rs"

@@ -65,6 +65,43 @@ jobs:
           name: openapi-spec
           path: openapi.json
 
+  deploy-docs:
+    name: Deploy OpenAPI Swagger Docs
+    needs: generate-openapi
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download OpenAPI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: openapi-spec
+          path: docs/swagger/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
   build:
     name: Build for ${{ matrix.target }}
     needs: test
