@@ -3099,7 +3099,7 @@ dependencies = [
 
 [[package]]
 name = "sms-server"
-version = "3.4.6"
+version = "3.4.7"
 dependencies = [
  "aes-gcm",
  "anyhow",

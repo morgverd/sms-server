@@ -2,6 +2,8 @@
 
 Send modem requests, SMS messages and make database access requests from an HTTP REST API.
 
+## [OpenAPI Swagger UI](https://morgverd.github.io/sms-server/)
+
 ## Routes
 
 | Route                       | AT Command       | Description                                                                                               |

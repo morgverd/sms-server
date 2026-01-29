@@ -1,14 +1,14 @@
 # SMS Server
 
 Self-hosted SMS gateway for messaging, GNSS data, and modem control (signal strength, URCs, etc.).
-Offers database persistence, delivery tracking, and real-time events—no SIM polling needed.
-Secure, flexible, and efficient.
+Offers database persistence, full OpenAPI support, delivery tracking, and real-time events—no SIM polling needed.
+Secure, flexible, and dependable.
 
 ### **Multiple Integration Options**
 - **[Rust Client Library](https://github.com/morgverd/sms-client)** (**[crates.io](https://crates.io/crates/sms-client)**) for easily using the HTTP & WebSocket interfaces
-- **[HTTP API](docs/http.md)** for sending and reading SMS messages, modem requests and device info
-- **[WebSocket Subscriber](docs/websocket.md)** for receiving events live, with optional event filtering
+- **[HTTP OpenAPI](https://morgverd.github.io/sms-server)** for sending and reading SMS messages, modem requests and device info with OpenAPI support
 - **[HTTP Webhooks](docs/events.md)** to receive events with a HTTP server, sending POST requests to provided URLs
+- **[WebSocket](docs/websocket.md)** for receiving events live, with optional event filtering
 
 ### Built-in Security
 - Encryption by default for all message storage within database
@@ -33,12 +33,13 @@ Secure, flexible, and efficient.
 
 ## Documentation
 
-| Document                                     | Description                                        |
-|----------------------------------------------|----------------------------------------------------|
-| [Configuration Guide](docs/configuration.md) | Complete configuration reference with examples     |
-| [Event Types](docs/events.md)                | Available events received via WebSocket or Webhook |
-| [HTTP API Reference](docs/http.md)           | REST API endpoints for SMS operations              |
-| [WebSocket Guide](docs/websocket.md)         | Real-time event streaming setup                    |
+| Document                                                     | Description                                        |
+|--------------------------------------------------------------|----------------------------------------------------|
+| [OpenAPI Swagger UI](https://morgverd.github.io/sms-server/) | HTTP OpenAPI Swagger UI from latest build          |
+| [Configuration Guide](docs/configuration.md)                 | Complete configuration reference with examples     |
+| [Event Types](docs/events.md)                                | Available events received via WebSocket or Webhook |
+| [HTTP API Reference](docs/http.md)                           | REST API endpoints for SMS operations              |
+| [WebSocket Guide](docs/websocket.md)                         | Real-time event streaming setup                    |
 
 ## Features
 
@@ -51,6 +52,7 @@ The feature code is used in the build version metadata suffix. Eg: `1.0.0#ghtr` 
 | `db-sqlite`   |      | ✔️      | SQLite database connection driver (currently only database supported)                  |
 | `tls-rustls`  | `tr` | ✔️      | Uses rustls and aws-lc-rs for TLS all connections                                      | 
 | `tls-native`  | `tn` |         | Uses openssl for http-server (if enabled) and native-tls for all other TLS connections |
+| `openapi`     | `o`  |         | Adds utoipa OpenAPI spec generation to HTTP routes, includes swagger-ui at /docs!      |
 | `sentry`      | `s`  |         | Adds Sentry error reporting / logging integration                                      |
 
 ## Examples
