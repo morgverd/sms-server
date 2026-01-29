@@ -124,16 +124,6 @@ jobs:
       - name: Build binary
         run: cross build --release --target ${{ matrix.target }} ${{ matrix.features }}
 
-      - name: Strip binary
-        run: |
-          if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-musl" ]]; then
-            docker run --rm -v "$(pwd):/workspace" -w /workspace \
-              messense/rust-musl-cross:aarch64-musl \
-              strip target/${{ matrix.target }}/release/sms-server
-          else
-            strip target/${{ matrix.target }}/release/sms-server
-          fi
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
