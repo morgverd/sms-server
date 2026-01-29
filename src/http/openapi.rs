@@ -8,6 +8,9 @@ use utoipa::Modify;
     info(
         title = "SMS Server",
     ),
+    servers(
+        (url = "/", description = "Current server")
+    ),
     tags(
         (name = "Database", description = "Database routes"),
         (name = "SMS", description = "SMS sending and device information"),

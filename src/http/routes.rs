@@ -63,8 +63,13 @@ macro_rules! modem_extract {
     post,
     path = "/db/messages",
     tag = "Database",
+    summary = "Fetch SMS messages",
+    description = "Retrieves SMS messages for a specific phone number from the database. Supports optional pagination.",
     security(("bearer_auth" = [])),
-    request_body = crate::http::types::PhoneNumberFetchRequest,
+    request_body(
+        content = crate::http::types::PhoneNumberFetchRequest,
+        example = json!({"phone_number": "+1234567890", "limit": 50, "offset": 0, "reverse": false})
+    ),
     responses(
         (status = 200, body = crate::http::types::SuccessfulResponse<Vec<sms_types::sms::SmsMessage>>)
     )
@@ -96,7 +101,12 @@ pub async fn db_messages(
     path = "/db/latest-numbers",
     tag = "Database",
     security(("bearer_auth" = [])),
-    request_body = Option<crate::http::types::GlobalFetchRequest>,
+    summary = "Get latest phone numbers",
+    description = "Retrieves a list of phone numbers that have recently sent or received messages, along with their friendly names if set. Useful for populating a conversation list. Supports optional pagination.",
+    request_body(
+        content = Option<crate::http::types::GlobalFetchRequest>,
+        example = json!({"limit": 50})
+    ),
     responses(
         (status = 200, body = crate::http::types::SuccessfulResponse<Vec<sms_types::http::LatestNumberFriendlyNamePair>>)
     )
@@ -130,8 +140,13 @@ pub async fn db_latest_numbers(
     post,
     path = "/db/delivery-reports",
     tag = "Database",
+    summary = "Get delivery reports",
+    description = "Retrieves delivery status reports for a specific sent message by its message ID. Returns information about whether the message was delivered, pending, or failed. There may be multiple delivery reports for delivery retries.",
     security(("bearer_auth" = [])),
-    request_body = crate::http::types::MessageIdFetchRequest,
+    request_body(
+        content = crate::http::types::MessageIdFetchRequest,
+        example = json!({"message_id": 10, "limit": 1, "reverse": true})
+    ),
     responses(
         (status = 200, body = crate::http::types::SuccessfulResponse<Vec<sms_types::sms::SmsDeliveryReport>>)
     )
@@ -162,10 +177,16 @@ pub async fn db_delivery_reports(
     post,
     path = "/db/friendly-names/set",
     tag = "Database",
+    summary = "Set friendly name",
+    description = "Associates a friendly name (contact name) with a phone number. This name will be returned alongside the phone number in other API responses.",
     security(("bearer_auth" = [])),
-    request_body = crate::http::types::SetFriendlyNameRequest,
+    request_body(
+        content = crate::http::types::SetFriendlyNameRequest,
+        example = json!({"phone_number": "+1234567890", "friendly_name": "Cool guy!"})
+    ),
     responses(
-        (status = 200, body = crate::http::types::SuccessfulResponse<bool>)
+        (status = 200, body = crate::http::types::SuccessfulResponse<bool>,
+            example = json!({"success": true, "data": true}))
     )
 ))]
 pub async fn db_friendly_names_set(
@@ -190,10 +211,16 @@ pub async fn db_friendly_names_set(
     post,
     path = "/db/friendly-names/get",
     tag = "Database",
+    summary = "Get friendly name",
+    description = "Retrieves the friendly name (contact name) associated with a phone number, if one has been set.",
     security(("bearer_auth" = [])),
-    request_body = crate::http::types::GetFriendlyNameRequest,
+    request_body(
+        content = crate::http::types::GetFriendlyNameRequest,
+        example = json!({"phone_number": "+1234567890"})
+    ),
     responses(
-        (status = 200, body = crate::http::types::SuccessfulResponse<Option<String>>)
+        (status = 200, body = crate::http::types::SuccessfulResponse<Option<String>>,
+            example = json!({"success": true, "data": "Cool guy!"}))
     )
 ))]
 pub async fn db_friendly_names_get(
@@ -217,8 +244,13 @@ pub async fn db_friendly_names_get(
     post,
     path = "/sms/send",
     tag = "SMS",
+    summary = "Send SMS message",
+    description = "Sends an SMS message to the specified phone number. Supports flash messages (displayed immediately on the recipient's screen), custom validity periods, and configurable timeout. Returns the message ID and network reference ID on success.",
     security(("bearer_auth" = [])),
-    request_body = crate::http::types::SendSmsRequest,
+    request_body(
+        content = crate::http::types::SendSmsRequest,
+        example = json!({"to": "+1234567890", "content": "Hello! This is a test message.", "flash": true, "timeout": 10})
+    ),
     responses(
         (status = 200, body = crate::http::types::SuccessfulResponse<sms_types::http::HttpSmsSendResponse>)
     )
@@ -287,9 +319,12 @@ pub async fn sms_send(
     get,
     path = "/sms/network-status",
     tag = "SMS",
+    summary = "Get network registration status",
+    description = "Returns the current network registration status and technology type (e.g., 2G, 3G, 4G) for the modem.",
     security(("bearer_auth" = [])),
     responses(
-        (status = 200, body = crate::http::types::SuccessfulResponse<sms_types::http::HttpModemNetworkStatusResponse>)
+        (status = 200, body = crate::http::types::SuccessfulResponse<sms_types::http::HttpModemNetworkStatusResponse>,
+            example = json!({"success": true, "data": {"registration": 0, "technology": 1}}))
     )
 ))]
 pub async fn sms_get_network_status(
@@ -311,9 +346,12 @@ pub async fn sms_get_network_status(
     get,
     path = "/sms/signal-strength",
     tag = "SMS",
+    summary = "Get signal strength",
+    description = "Returns the current signal strength (RSSI) and bit error rate (BER) from the modem. RSSI values typically range from 0-31, with higher values indicating stronger signal.",
     security(("bearer_auth" = [])),
     responses(
-        (status = 200, body = crate::http::types::SuccessfulResponse<sms_types::http::HttpModemSignalStrengthResponse>)
+        (status = 200, body = crate::http::types::SuccessfulResponse<sms_types::http::HttpModemSignalStrengthResponse>,
+            example = json!({"success": true, "data": {"rssi": 17, "ber": 0}}))
     )
 ))]
 pub async fn sms_get_signal_strength(
@@ -332,9 +370,12 @@ pub async fn sms_get_signal_strength(
     get,
     path = "/sms/network-operator",
     tag = "SMS",
+    summary = "Get network operator",
+    description = "Returns information about the currently connected network operator, including the operator name and connection status.",
     security(("bearer_auth" = [])),
     responses(
-        (status = 200, body = crate::http::types::SuccessfulResponse<sms_types::http::HttpModemNetworkOperatorResponse>)
+        (status = 200, body = crate::http::types::SuccessfulResponse<sms_types::http::HttpModemNetworkOperatorResponse>,
+            example = json!({"success": true, "data": {"status": 0, "format": 0, "operator": "vodafone"}}))
     )
 ))]
 pub async fn sms_get_network_operator(
@@ -357,9 +398,12 @@ pub async fn sms_get_network_operator(
     get,
     path = "/sms/service-provider",
     tag = "SMS",
+    summary = "Get service provider",
+    description = "Returns the name of the SIM card's service provider (e.g., the mobile carrier name stored on the SIM).",
     security(("bearer_auth" = [])),
     responses(
-        (status = 200, body = crate::http::types::SuccessfulResponse<String>)
+        (status = 200, body = crate::http::types::SuccessfulResponse<String>,
+            example = json!({"success": true, "data": "ASDA Mobile"}))
     )
 ))]
 pub async fn sms_get_service_provider(State(state): State<HttpState>) -> HttpResult<String> {
@@ -374,9 +418,12 @@ pub async fn sms_get_service_provider(State(state): State<HttpState>) -> HttpRes
     get,
     path = "/sms/battery-level",
     tag = "SMS",
+    summary = "Get battery level",
+    description = "Returns the current battery status, charge percentage, and voltage of the modem device. Only applicable for battery-powered modems, usually for GNSS warm starts.",
     security(("bearer_auth" = [])),
     responses(
-        (status = 200, body = crate::http::types::SuccessfulResponse<sms_types::http::HttpModemBatteryLevelResponse>)
+        (status = 200, body = crate::http::types::SuccessfulResponse<sms_types::http::HttpModemBatteryLevelResponse>,
+            example = json!({"success": true, "data": {"status": 0, "charge": 71, "voltage": 3.972}}))
     )
 ))]
 pub async fn sms_get_battery_level(
@@ -399,6 +446,8 @@ pub async fn sms_get_battery_level(
     get,
     path = "/sms/device-info",
     tag = "SMS",
+    summary = "Get device information",
+    description = "Returns all modem information, this is more efficient than requesting each individually.",
     security(("bearer_auth" = [])),
     responses(
         (status = 200, body = crate::http::types::SuccessfulResponse<sms_types::http::HttpSmsDeviceInfoResponse>)
@@ -430,6 +479,8 @@ pub async fn sms_get_device_info(
     get,
     path = "/gnss/status",
     tag = "GNSS",
+    summary = "Get GNSS fix status",
+    description = "Returns the current GNSS fix status, indicating whether a position fix has been acquired and the type of fix (e.g., no fix, 2D fix, 3D fix).",
     security(("bearer_auth" = [])),
     responses(
         (status = 200, body = crate::http::types::SuccessfulResponse<sms_types::gnss::FixStatus>)
@@ -449,6 +500,8 @@ pub async fn gnss_get_status(
     get,
     path = "/gnss/location",
     tag = "GNSS",
+    summary = "Get GNSS location",
+    description = "Returns the current GNSS position report. Requires a valid GNSS fix.",
     security(("bearer_auth" = [])),
     responses(
         (status = 200, body = crate::http::types::SuccessfulResponse<sms_types::gnss::PositionReport>)
@@ -468,6 +521,8 @@ pub async fn gnss_get_location(
     get,
     path = "/sys/version",
     tag = "System",
+    summary = "Get server version",
+    description = "Returns the current version string of the SMS server.",
     security(("bearer_auth" = [])),
     responses(
         (status = 200, description = "Version retrieved successfully", body = crate::http::types::SuccessfulResponse<String>,
@@ -482,6 +537,8 @@ pub async fn sys_version(State(_state): State<HttpState>) -> HttpResult<String> 
     get,
     path = "/sys/phone-number",
     tag = "System",
+    summary = "Get configured phone number",
+    description = "Returns the phone number configured for this SMS server, if one has been set in the configuration.",
     security(("bearer_auth" = [])),
     responses(
         (status = 200, description = "System phone number retrieved successfully", body = crate::http::types::SuccessfulResponse<Option<String>>,
@@ -496,10 +553,16 @@ pub async fn sys_phone_number(State(state): State<HttpState>) -> HttpResult<Opti
     post,
     path = "/sys/set-log-level",
     tag = "System",
+    summary = "Set log level",
+    description = "Change the server's logging level at runtime. This can be useful for live debugging via journalctl etc.",
     security(("bearer_auth" = [])),
-    request_body = crate::http::types::SetLogLevelRequest,
+    request_body(
+        content = crate::http::types::SetLogLevelRequest,
+        example = json!({"level": "debug"})
+    ),
     responses(
-        (status = 200, body = crate::http::types::SuccessfulResponse<bool>)
+        (status = 200, body = crate::http::types::SuccessfulResponse<bool>,
+            example = json!({"success": true, "data": true}))
     )
 ))]
 pub async fn sys_set_log_level(
@@ -529,6 +592,8 @@ pub async fn sys_set_log_level(
     get,
     path = "/ws",
     tag = "WebSocket",
+    summary = "WebSocket connection",
+    description = "Establishes a WebSocket connection for receiving real-time events.",
     params(crate::http::types::WebSocketQuery),
     responses(
         (status = 101, description = "WebSocket connection established"),
