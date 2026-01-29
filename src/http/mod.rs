@@ -114,10 +114,10 @@ pub fn create_app(
 
     #[cfg(feature = "openapi")]
     {
-        debug!("Adding OpenAPI SwaggerUi at /swagger-ui!");
+        debug!("Adding OpenAPI SwaggerUi at /docs!");
         router = router.merge(
-            utoipa_swagger_ui::SwaggerUi::new("/swagger-ui")
-                .url("/api-docs/openapi.json", openapi::ApiDoc::openapi()),
+            utoipa_swagger_ui::SwaggerUi::new("/docs")
+                .url("/docs/openapi.json", openapi::ApiDoc::openapi()),
         );
     }
 
