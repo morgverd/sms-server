@@ -121,3 +121,16 @@ impl Modify for OpenApiModifier {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use utoipa::OpenApi;
+
+    #[test]
+    fn export_openapi_spec() {
+        let spec = ApiDoc::openapi().to_json().unwrap();
+        std::fs::write("openapi.json", &spec).expect("Failed to write openapi.json");
+        println!("Wrote openapi.json ({} bytes)", spec.len());
+    }
+}

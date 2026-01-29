@@ -10,6 +10,36 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  generate-openapi:
+    name: Generate OpenAPI Spec
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-openapi-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-openapi-
+
+      - name: Generate OpenAPI spec
+        run: cargo test export_openapi_spec --features openapi -- --nocapture
+
+      - name: Upload OpenAPI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-spec
+          path: openapi.json
+
   build:
     name: Build for ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
@@ -83,7 +113,7 @@ jobs:
 
   release:
     name: Create Release
-    needs: build
+    needs: [build, generate-openapi]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
 
@@ -97,7 +127,7 @@ jobs:
           path: artifacts
 
       - name: Display structure of downloaded files
-        run: ls -la artifacts/
+        run: ls -laR artifacts/
 
       - name: Create release
         id: create_release
@@ -119,6 +149,7 @@ jobs:
             - **Linux x64 with Sentry**: sms-server-linux-x64-sentry
             - **Linux ARM64**: sms-server-linux-aarch64
             - **Linux ARM64 with Sentry**: sms-server-linux-aarch64-sentry
+            - **OpenAPI Spec**: openapi.json
 
       - name: Upload Linux x64 binary
         uses: actions/upload-release-asset@v1
@@ -159,3 +190,13 @@ jobs:
           asset_path: artifacts/sms-server-linux-aarch64-sentry/sms-server
           asset_name: sms-server-linux-aarch64-sentry
           asset_content_type: application/octet-stream
+
+      - name: Upload OpenAPI spec
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/openapi-spec/openapi.json
+          asset_name: openapi.json
+          asset_content_type: application/json
