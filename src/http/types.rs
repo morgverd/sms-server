@@ -50,8 +50,6 @@ impl IntoResponse for HttpError {
 
 pub type HttpResult<T> = Result<HttpSuccess<T>, HttpError>;
 
-// -----------------------
-
 #[derive(Deserialize)]
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct PhoneNumberFetchRequest {
@@ -115,25 +113,6 @@ pub struct SendSmsRequest {
 #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 pub struct SetLogLevelRequest {
     pub level: String,
-}
-
-#[derive(Serialize)]
-#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
-pub struct SendSmsResponse {
-    pub message_id: i64,
-    pub reference_id: u8,
-}
-
-#[derive(Serialize)]
-#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
-pub struct SmsDeviceInfo {
-    pub version: String,
-    pub phone_number: Option<String>,
-    pub service_provider: Option<String>,
-    pub network_operator: Option<(u8, u8, String)>,
-    pub network_status: Option<(u8, u8)>,
-    pub battery: Option<(u8, u8, f32)>,
-    pub signal: Option<(i32, i32)>,
 }
 
 #[derive(Deserialize)]

@@ -7,8 +7,8 @@ mod openapi;
 
 use crate::config::HTTPConfig;
 use crate::http::routes::*;
+use crate::http::types::HttpError;
 use crate::http::websocket::WebSocketManager;
-use crate::modem::types::{ModemRequest, ModemResponse};
 use crate::sms::SMSManager;
 use crate::TracingReloadHandle;
 use anyhow::{bail, Result};
@@ -22,7 +22,6 @@ use tracing::log::{debug, warn};
 #[cfg(feature = "openapi")]
 use utoipa::OpenApi;
 
-use crate::http::types::{HttpError, HttpResult, HttpSuccess};
 #[cfg(feature = "sentry")]
 use sentry::integrations::tower::{NewSentryLayer, SentryHttpLayer};
 
@@ -32,19 +31,6 @@ pub struct HttpState {
     pub config: HTTPConfig,
     pub tracing_reload: TracingReloadHandle,
     pub websocket: Option<WebSocketManager>,
-}
-
-async fn get_modem_result(state: HttpState, request: ModemRequest) -> HttpResult<ModemResponse> {
-    let response = state
-        .sms_manager
-        .send_command(request)
-        .await
-        .map_err(|e| HttpError {
-            status: StatusCode::INTERNAL_SERVER_ERROR,
-            message: e.to_string(),
-        })?;
-
-    Ok(HttpSuccess(response))
 }
 
 async fn auth_middleware(
@@ -82,23 +68,23 @@ pub fn create_app(
     _tracing_reload: TracingReloadHandle,
 ) -> Result<axum::Router> {
     let mut router = axum::Router::new()
-        // .route("/db/sms", post(db_sms))
-        // .route("/db/latest-numbers", post(db_latest_numbers))
-        // .route("/db/delivery-reports", post(db_delivery_reports))
-        // .route("/db/friendly-names/set", post(friendly_names_set))
-        // .route("/db/friendly-names/get", post(friendly_names_get))
-        // .route("/sms/send", post(sms_send))
-        // .route("/sms/network-status", get(sms_get_network_status))
-        // .route("/sms/signal-strength", get(sms_get_signal_strength))
-        // .route("/sms/network-operator", get(sms_get_network_operator))
-        // .route("/sms/service-provider", get(sms_get_service_provider))
-        // .route("/sms/battery-level", get(sms_get_battery_level))
-        // .route("/sms/device-info", get(sms_get_device_info))
-        // .route("/gnss/status", get(gnss_get_status))
-        // .route("/gnss/location", get(gnss_get_location))
+        .route("/db/messages", post(db_messages))
+        .route("/db/latest-numbers", post(db_latest_numbers))
+        .route("/db/delivery-reports", post(db_delivery_reports))
+        .route("/db/friendly-names/set", post(db_friendly_names_set))
+        .route("/db/friendly-names/get", post(db_friendly_names_get))
+        .route("/sms/send", post(sms_send))
+        .route("/sms/network-status", get(sms_get_network_status))
+        .route("/sms/signal-strength", get(sms_get_signal_strength))
+        .route("/sms/network-operator", get(sms_get_network_operator))
+        .route("/sms/service-provider", get(sms_get_service_provider))
+        .route("/sms/battery-level", get(sms_get_battery_level))
+        .route("/sms/device-info", get(sms_get_device_info))
+        .route("/gnss/status", get(gnss_get_status))
+        .route("/gnss/location", get(gnss_get_location))
         .route("/sys/phone-number", get(sys_phone_number))
         .route("/sys/version", get(sys_version))
-        // .route("/sys/set-log-level", post(sys_set_log_level))
+        .route("/sys/set-log-level", post(sys_set_log_level))
         .layer(SetResponseHeaderLayer::overriding(
             HeaderName::from_static("x-version"),
             HeaderValue::from_static(crate::VERSION),

@@ -1,6 +1,6 @@
 [package]
 name = "sms-server"
-version = "3.3.1"
+version = "3.3.7"
 edition = "2021"
 license = "AGPL-3.0-only"
 build = "build.rs"
@@ -30,7 +30,7 @@ sentry = ["dep:sentry", "dep:sentry-tracing", "dep:sentry-anyhow", "dep:sentry-p
 gpio = ["dep:rppal"]
 
 # OpenAPI spec generator.
-openapi = ["dep:utoipa", "dep:utoipa-swagger-ui"]
+openapi = ["dep:utoipa", "dep:utoipa-swagger-ui", "sms-types/openapi"]
 
 # SQLite doesn't need TLS, so it just uses basic tokio runtime.
 db-sqlite = ["sqlx/sqlite", "sqlx/runtime-tokio"]
@@ -41,7 +41,8 @@ tls-native = ["reqwest/native-tls", "sentry?/native-tls", "axum-server?/tls-open
 
 [dependencies]
 sms-pdu = "1.1.0"
-sms-types = { version = "1.0.0", features = ["sqlx"] }
+#sms-types = { version = "1.0.0", features = ["sqlx"] }
+sms-types = { path = "../sms-types", features = ["sqlx", "openapi"] }
 tokio = { version = "1.45.1", features = ["rt-multi-thread", "parking_lot", "macros"] }
 serde = { version = "1.0.219", features = ["derive"] }
 sqlx = { version = "0.8.6" }

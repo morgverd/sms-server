@@ -1,6 +1,6 @@
 use crate::http::routes::*;
 use utoipa::openapi::security::{Http, HttpAuthScheme, SecurityScheme};
-use utoipa::openapi::{ContentBuilder, HttpMethod, RefOr, Response};
+use utoipa::openapi::{ContentBuilder, RefOr, Response};
 use utoipa::Modify;
 
 #[derive(utoipa::OpenApi)]
@@ -9,42 +9,31 @@ use utoipa::Modify;
         title = "SMS Server",
     ),
     tags(
+        (name = "Database", description = "Database routes"),
         (name = "SMS", description = "SMS sending and device information"),
-        (name = "Database", description = "Database queries for messages and delivery reports"),
-        (name = "Friendly Names", description = "Contact name management"),
+        (name = "GNSS", description = "GNSS position data"),
         (name = "System", description = "System configuration and status"),
-        (name = "WebSocket", description = "Real-time event streaming")
     ),
     paths(
-        // db_sms,
-        // db_delivery_reports,
-        // db_latest_numbers,
-        // friendly_names_set,
-        // friendly_names_get,
-        // sms_send,
-        // sms_get_device_info,
-        sys_version,
+        db_messages,
+        db_delivery_reports,
+        db_latest_numbers,
+        db_friendly_names_set,
+        db_friendly_names_get,
+        sms_send,
+        sms_get_network_status,
+        sms_get_signal_strength,
+        sms_get_network_operator,
+        sms_get_service_provider,
+        sms_get_battery_level,
+        sms_get_device_info,
+        gnss_get_status,
+        gnss_get_location,
         sys_phone_number,
-        // sys_set_log_level,
-        // websocket_upgrade
+        sys_version,
+        sys_set_log_level,
+        websocket_upgrade
     ),
-    // components(
-    //     schemas(
-    //         PhoneNumberFetchRequest,
-    //         MessageIdFetchRequest,
-    //         GlobalFetchRequest,
-    //         SetFriendlyNameRequest,
-    //         GetFriendlyNameRequest,
-    //         SendSmsRequest,
-    //         SetLogLevelRequest,
-    //         WebSocketQuery,
-    //         SendSmsResponse,
-    //         SmsDeviceInfo,
-    //         SmsMessage,
-    //         SmsDeliveryReport,
-    //         HttpResponse<()>,
-    //     )
-    // ),
     modifiers(&OpenApiModifier)
 )]
 pub struct ApiDoc;
@@ -66,7 +55,10 @@ impl Modify for OpenApiModifier {
             .license(Some(
                 utoipa::openapi::LicenseBuilder::new()
                     .name(env!("CARGO_PKG_LICENSE"))
-                    .url(Some(format!("https://spdx.org/licenses/{}.html", env!("CARGO_PKG_LICENSE"))))
+                    .url(Some(format!(
+                        "https://spdx.org/licenses/{}.html",
+                        env!("CARGO_PKG_LICENSE")
+                    )))
                     .build(),
             ))
             .build();
@@ -102,7 +94,7 @@ impl Modify for OpenApiModifier {
                 .into_iter()
                 .flatten()
             {
-                for (status, desc, example) in error_responses {
+                for (status, desc, _) in error_responses {
                     op.responses
                         .responses
                         .entry(status.to_string())

@@ -3099,7 +3099,7 @@ dependencies = [
 
 [[package]]
 name = "sms-server"
-version = "3.3.1"
+version = "3.3.7"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -3140,13 +3140,12 @@ dependencies = [
 
 [[package]]
 name = "sms-types"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92af55f4e45a8224ef4331940ea84f57d9b3608181371de4744564d9da55d217"
+version = "2.0.0"
 dependencies = [
  "serde",
  "serde_json",
  "sqlx",
+ "utoipa",
 ]
 
 [[package]]
