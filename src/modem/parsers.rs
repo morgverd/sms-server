@@ -705,8 +705,8 @@ mod tests {
         );
         let location = result.unwrap();
         assert!(
-            format!("{location:?}").contains("GNSSLocation"),
-            "Expected GNSSLocation object"
+            format!("{location:?}").contains("PositionReport"),
+            "Expected PositionReport object"
         );
 
         // Success - unsolicited response

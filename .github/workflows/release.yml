@@ -10,8 +10,33 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-test-
+
+      - name: Run tests
+        run: cargo test
+
   generate-openapi:
     name: Generate OpenAPI Spec
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -42,26 +67,27 @@ jobs:
 
   build:
     name: Build for ${{ matrix.target }}
+    needs: test
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          - target: x86_64-unknown-linux-gnu
+          - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             artifact_name: sms-server
             asset_name: sms-server-linux-x64
             features: ""
-          - target: x86_64-unknown-linux-gnu
+          - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             artifact_name: sms-server
             asset_name: sms-server-linux-x64-sentry
             features: "--features sentry"
-          - target: aarch64-unknown-linux-gnu
+          - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
             artifact_name: sms-server
             asset_name: sms-server-linux-aarch64
             features: ""
-          - target: aarch64-unknown-linux-gnu
+          - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
             artifact_name: sms-server
             asset_name: sms-server-linux-aarch64-sentry
@@ -76,11 +102,13 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Install cross-compilation dependencies (Linux ARM64)
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
+      - name: Install musl tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+          sudo apt-get install -y musl-tools
+
+      - name: Install cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
 
       - name: Cache cargo registry
         uses: actions/cache@v3
@@ -94,13 +122,14 @@ jobs:
             ${{ runner.os }}-${{ matrix.target }}-cargo-
 
       - name: Build binary
-        run: cargo build --release --target ${{ matrix.target }} ${{ matrix.features }}
+        run: cross build --release --target ${{ matrix.target }} ${{ matrix.features }}
 
-      - name: Strip binary (Linux)
-        if: runner.os == 'Linux'
+      - name: Strip binary
         run: |
-          if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]]; then
-            aarch64-linux-gnu-strip target/${{ matrix.target }}/release/sms-server
+          if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-musl" ]]; then
+            docker run --rm -v "$(pwd):/workspace" -w /workspace \
+              messense/rust-musl-cross:aarch64-musl \
+              aarch64-linux-musl-strip target/${{ matrix.target }}/release/sms-server
           else
             strip target/${{ matrix.target }}/release/sms-server
           fi
@@ -150,6 +179,8 @@ jobs:
             - **Linux ARM64**: sms-server-linux-aarch64
             - **Linux ARM64 with Sentry**: sms-server-linux-aarch64-sentry
             - **OpenAPI Spec**: openapi.json
+            
+            All binaries are statically linked (musl) and should work on any Linux distribution.
 
       - name: Upload Linux x64 binary
         uses: actions/upload-release-asset@v1
