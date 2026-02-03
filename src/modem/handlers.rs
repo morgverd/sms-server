@@ -4,7 +4,7 @@ use crate::modem::types::{
     ModemIncomingMessage, ModemRequest, ModemResponse, ModemStatus, UnsolicitedMessageType,
 };
 use crate::modem::worker::WorkerEvent;
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use sms_pdu::pdu::{DeliverPdu, StatusReportPdu};
 use sms_types::sms::{SmsIncomingMessage, SmsMultipartHeader, SmsPartialDeliveryReport};
 use tokio::sync::mpsc;
@@ -75,26 +75,23 @@ impl ModemEventHandlers {
                 let deliver_pdu =
                     DeliverPdu::try_from(content_hex.as_slice()).map_err(|e| anyhow!(e))?;
 
-                // Decode incoming message data to get user data header which is required for multipart messages.
-                let incoming = match deliver_pdu.get_message_data().decode_message() {
-                    Ok(msg) => {
-                        // Find multipart component, convert into a SmsMultipartHeader.
-                        let user_data_header = msg
-                            .udh
-                            .and_then(|udh| udh.components.into_iter().find(|c| c.id == 0x00))
-                            .map(|component| SmsMultipartHeader::try_from(component.data))
-                            .transpose()
-                            .map_err(|e| anyhow!(e))?;
+                let message_data = deliver_pdu
+                    .get_message_data()
+                    .decode_message()
+                    .map_err(|e| anyhow!(e))?;
 
-                        SmsIncomingMessage {
-                            phone_number: get_real_number(
-                                deliver_pdu.originating_address.to_string(),
-                            ),
-                            user_data_header,
-                            content: msg.text,
-                        }
-                    }
-                    Err(e) => bail!("Failed to parse incoming SMS data: {:?}", e),
+                // Decode incoming message data to get user data header which is required for multipart messages.
+                let user_data_header = message_data
+                    .udh
+                    .and_then(|udh| udh.components.into_iter().find(|c| c.id == 0x00))
+                    .map(|component| SmsMultipartHeader::try_from(component.data))
+                    .transpose()
+                    .map_err(|e| anyhow!(e))?;
+
+                let incoming = SmsIncomingMessage {
+                    phone_number: get_real_number(deliver_pdu.originating_address.to_string()),
+                    user_data_header,
+                    content: message_data.text,
                 };
 
                 Ok(Some(ModemIncomingMessage::IncomingSMS(incoming)))

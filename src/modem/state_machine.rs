@@ -22,7 +22,7 @@ impl CommandExecution {
         let context = CommandContext {
             sequence: command.sequence,
             state: command_state,
-            response_buffer: String::new(),
+            response_buffer: String::default(),
         };
 
         let timeout = command.get_request_timeout();

@@ -16,18 +16,18 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 pub struct AppConfig {
     pub database: DatabaseConfig,
 
-    #[cfg(feature = "sentry")]
-    pub sentry: Option<SentryConfig>,
-
     #[serde(default)]
     pub modem: ModemConfig,
+
+    #[serde(default)]
+    pub webhooks: Option<Vec<ConfiguredWebhook>>,
 
     #[cfg(feature = "http-server")]
     #[serde(default)]
     pub http: HTTPConfig,
 
-    #[serde(default)]
-    pub webhooks: Option<Vec<ConfiguredWebhook>>,
+    #[cfg(feature = "sentry")]
+    pub sentry: Option<SentryConfig>,
 }
 impl AppConfig {
     pub fn load(config_filepath: Option<PathBuf>) -> Result<Self> {
@@ -146,24 +146,6 @@ impl ConfiguredWebhook {
     }
 }
 
-#[cfg(feature = "sentry")]
-#[derive(Debug, Deserialize)]
-pub struct SentryConfig {
-    pub dsn: String,
-
-    #[serde(default)]
-    pub environment: Option<String>,
-
-    #[serde(default)]
-    pub server_name: Option<String>,
-
-    #[serde(default)]
-    pub debug: bool,
-
-    #[serde(default = "default_true")]
-    pub send_default_pii: bool,
-}
-
 #[cfg(feature = "http-server")]
 #[derive(Debug, Clone, Deserialize)]
 pub struct HTTPConfig {
@@ -214,6 +196,24 @@ pub struct TLSConfig {
 
     #[serde(deserialize_with = "deserialize_existing_file")]
     pub key_path: PathBuf,
+}
+
+#[cfg(feature = "sentry")]
+#[derive(Debug, Deserialize)]
+pub struct SentryConfig {
+    pub dsn: String,
+
+    #[serde(default)]
+    pub environment: Option<String>,
+
+    #[serde(default)]
+    pub server_name: Option<String>,
+
+    #[serde(default)]
+    pub debug: bool,
+
+    #[serde(default = "default_true")]
+    pub send_default_pii: bool,
 }
 
 fn default_modem_device() -> String {
