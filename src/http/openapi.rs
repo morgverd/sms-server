@@ -82,12 +82,7 @@ impl Modify for OpenApiModifier {
                 "401",
                 "Unauthorized",
                 r#"{"success": false, "error": "Invalid token"}"#,
-            ),
-            (
-                "500",
-                "Internal server error",
-                r#"{"success": false, "error": "Internal server error"}"#,
-            ),
+            )
         ];
         for path_item in openapi.paths.paths.values_mut() {
             for op in [&mut path_item.get, &mut path_item.post]
@@ -116,6 +111,41 @@ impl Modify for OpenApiModifier {
                 }
             }
         }
+    }
+}
+
+pub mod responses {
+
+    macro_rules! create_responses {
+        ($($name:ident => $inner:ty),* $(;)?) => {
+            $(
+                #[derive(serde::Serialize, utoipa::ToSchema)]
+                pub struct $name {
+                    pub success: bool,
+                    pub response: $inner,
+                }
+            )*
+        };
+    }
+
+    // Make a concrete type for each response since without it
+    // code generation is unusable as everything is inlined.
+    // There has to be a better way!
+    create_responses! {
+        SmsMessagesResponse => Vec<sms_types::sms::SmsMessage>,
+        LatestNumbersResponse => Vec<sms_types::http::LatestNumberFriendlyNamePair>,
+        DeliveryReportsResponse => Vec<sms_types::sms::SmsDeliveryReport>,
+        SmsSendResponse => sms_types::http::HttpSmsSendResponse,
+        NetworkStatusResponse => sms_types::http::HttpModemNetworkStatusResponse,
+        SignalStrengthResponse => sms_types::http::HttpModemSignalStrengthResponse,
+        NetworkOperatorResponse => sms_types::http::HttpModemNetworkOperatorResponse,
+        BatteryLevelResponse => sms_types::http::HttpModemBatteryLevelResponse,
+        DeviceInfoResponse => sms_types::http::HttpSmsDeviceInfoResponse,
+        GnssFixStatusResponse => sms_types::gnss::FixStatus,
+        GnssPositionResponse => sms_types::gnss::PositionReport,
+        BoolResponse => bool,
+        StringResponse => String,
+        OptionalStringResponse => Option<String>
     }
 }
 
