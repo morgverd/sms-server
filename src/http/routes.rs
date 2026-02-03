@@ -71,7 +71,7 @@ macro_rules! modem_extract {
         example = json!({"phone_number": "+1234567890", "limit": 50, "offset": 0, "reverse": false})
     ),
     responses(
-        (status = 200, body = inline(crate::http::types::SuccessfulResponse<Vec<sms_types::sms::SmsMessage>>))
+        (status = 200, body = crate::http::openapi::responses::SmsMessagesResponse)
     )
 ))]
 pub async fn db_messages(
@@ -108,7 +108,7 @@ pub async fn db_messages(
         example = json!({"limit": 50})
     ),
     responses(
-        (status = 200, body = inline(crate::http::types::SuccessfulResponse<Vec<sms_types::http::LatestNumberFriendlyNamePair>>))
+        (status = 200, body = crate::http::openapi::responses::LatestNumbersResponse)
     )
 ))]
 pub async fn db_latest_numbers(
@@ -148,7 +148,7 @@ pub async fn db_latest_numbers(
         example = json!({"message_id": 10, "limit": 1, "reverse": true})
     ),
     responses(
-        (status = 200, body = inline(crate::http::types::SuccessfulResponse<Vec<sms_types::sms::SmsDeliveryReport>>))
+        (status = 200, body = crate::http::openapi::responses::DeliveryReportsResponse)
     )
 ))]
 pub async fn db_delivery_reports(
@@ -185,7 +185,7 @@ pub async fn db_delivery_reports(
         example = json!({"phone_number": "+1234567890", "friendly_name": "Cool guy!"})
     ),
     responses(
-        (status = 200, body = inline(crate::http::types::SuccessfulResponse<bool>),
+        (status = 200, body = crate::http::openapi::responses::BoolResponse,
             example = json!({"success": true, "data": true}))
     )
 ))]
@@ -219,7 +219,7 @@ pub async fn db_friendly_names_set(
         example = json!({"phone_number": "+1234567890"})
     ),
     responses(
-        (status = 200, body = inline(crate::http::types::SuccessfulResponse<Option<String>>),
+        (status = 200, body = crate::http::openapi::responses::OptionalStringResponse,
             example = json!({"success": true, "data": "Cool guy!"}))
     )
 ))]
@@ -252,7 +252,7 @@ pub async fn db_friendly_names_get(
         example = json!({"to": "+1234567890", "content": "Hello! This is a test message.", "flash": true, "timeout": 10})
     ),
     responses(
-        (status = 200, body = inline(crate::http::types::SuccessfulResponse<sms_types::http::HttpSmsSendResponse>))
+        (status = 200, body = crate::http::openapi::responses::SmsMessagesResponse)
     )
 ))]
 pub async fn sms_send(
@@ -323,7 +323,7 @@ pub async fn sms_send(
     description = "Returns the current network registration status and technology type (e.g., 2G, 3G, 4G) for the modem.",
     security(("bearer_auth" = [])),
     responses(
-        (status = 200, body = inline(crate::http::types::SuccessfulResponse<sms_types::http::HttpModemNetworkStatusResponse>),
+        (status = 200, body = crate::http::openapi::responses::NetworkStatusResponse,
             example = json!({"success": true, "data": {"registration": 0, "technology": 1}}))
     )
 ))]
@@ -350,7 +350,7 @@ pub async fn sms_get_network_status(
     description = "Returns the current signal strength (RSSI) and bit error rate (BER) from the modem. RSSI values typically range from 0-31, with higher values indicating stronger signal.",
     security(("bearer_auth" = [])),
     responses(
-        (status = 200, body = inline(crate::http::types::SuccessfulResponse<sms_types::http::HttpModemSignalStrengthResponse>),
+        (status = 200, body = crate::http::openapi::responses::SignalStrengthResponse,
             example = json!({"success": true, "data": {"rssi": 17, "ber": 0}}))
     )
 ))]
@@ -374,7 +374,7 @@ pub async fn sms_get_signal_strength(
     description = "Returns information about the currently connected network operator, including the operator name and connection status.",
     security(("bearer_auth" = [])),
     responses(
-        (status = 200, body = inline(crate::http::types::SuccessfulResponse<sms_types::http::HttpModemNetworkOperatorResponse>),
+        (status = 200, body = crate::http::openapi::responses::NetworkOperatorResponse,
             example = json!({"success": true, "data": {"status": 0, "format": 0, "operator": "vodafone"}}))
     )
 ))]
@@ -402,7 +402,7 @@ pub async fn sms_get_network_operator(
     description = "Returns the name of the SIM card's service provider (e.g., the mobile carrier name stored on the SIM).",
     security(("bearer_auth" = [])),
     responses(
-        (status = 200, body = inline(crate::http::types::SuccessfulResponse<String>),
+        (status = 200, body = crate::http::openapi::responses::StringResponse,
             example = json!({"success": true, "data": "ASDA Mobile"}))
     )
 ))]
@@ -422,7 +422,7 @@ pub async fn sms_get_service_provider(State(state): State<HttpState>) -> HttpRes
     description = "Returns the current battery status, charge percentage, and voltage of the modem device. Only applicable for battery-powered modems, usually for GNSS warm starts.",
     security(("bearer_auth" = [])),
     responses(
-        (status = 200, body = inline(crate::http::types::SuccessfulResponse<sms_types::http::HttpModemBatteryLevelResponse>),
+        (status = 200, body = crate::http::openapi::responses::BatteryLevelResponse,
             example = json!({"success": true, "data": {"status": 0, "charge": 71, "voltage": 3.972}}))
     )
 ))]
@@ -450,9 +450,9 @@ pub async fn sms_get_battery_level(
     description = "Returns all modem information, this is more efficient than requesting each individually.",
     security(("bearer_auth" = [])),
     responses(
-        (status = 200, body = inline(crate::http::types::SuccessfulResponse<sms_types::http::HttpSmsDeviceInfoResponse>))
+        (status = 200, body = crate::http::openapi::responses::DeviceInfoResponse))
     )
-))]
+)]
 pub async fn sms_get_device_info(
     State(state): State<HttpState>,
 ) -> HttpResult<sms_types::http::HttpSmsDeviceInfoResponse> {
@@ -483,7 +483,7 @@ pub async fn sms_get_device_info(
     description = "Returns the current GNSS fix status, indicating whether a position fix has been acquired and the type of fix (e.g., no fix, 2D fix, 3D fix).",
     security(("bearer_auth" = [])),
     responses(
-        (status = 200, body = inline(crate::http::types::SuccessfulResponse<sms_types::gnss::FixStatus>))
+        (status = 200, body = crate::http::openapi::responses::GnssFixStatusResponse)
     )
 ))]
 pub async fn gnss_get_status(
@@ -504,7 +504,7 @@ pub async fn gnss_get_status(
     description = "Returns the current GNSS position report. Requires a valid GNSS fix.",
     security(("bearer_auth" = [])),
     responses(
-        (status = 200, body = inline(crate::http::types::SuccessfulResponse<sms_types::gnss::PositionReport>))
+        (status = 200, body = crate::http::openapi::responses::GnssPositionResponse)
     )
 ))]
 pub async fn gnss_get_location(
@@ -525,7 +525,7 @@ pub async fn gnss_get_location(
     description = "Returns the current version string of the SMS server.",
     security(("bearer_auth" = [])),
     responses(
-        (status = 200, description = "Version retrieved successfully", body = inline(crate::http::types::SuccessfulResponse<String>),
+        (status = 200, description = "Version retrieved successfully", body = crate::http::openapi::responses::StringResponse,
             example = json!({"success": true, "data": "1.0.0"}))
     )
 ))]
@@ -541,7 +541,7 @@ pub async fn sys_version(State(_state): State<HttpState>) -> HttpResult<String> 
     description = "Returns the phone number configured for this SMS server, if one has been set in the configuration.",
     security(("bearer_auth" = [])),
     responses(
-        (status = 200, description = "System phone number retrieved successfully", body = inline(crate::http::types::SuccessfulResponse<Option<String>>),
+        (status = 200, description = "System phone number retrieved successfully", body = crate::http::openapi::responses::OptionalStringResponse,
             example = json!({"success": true, "data": "+1234567890"}))
     )
 ))]
@@ -561,7 +561,7 @@ pub async fn sys_phone_number(State(state): State<HttpState>) -> HttpResult<Opti
         example = json!({"level": "debug"})
     ),
     responses(
-        (status = 200, body = inline(crate::http::types::SuccessfulResponse<bool>),
+        (status = 200, body = crate::http::openapi::responses::BoolResponse,
             example = json!({"success": true, "data": true}))
     )
 ))]
