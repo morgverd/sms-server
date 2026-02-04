@@ -1,20 +1,20 @@
 mod types;
 
+use crate::types::*;
+use axum::Router;
+use axum::extract::{Json, State};
+use axum::http::StatusCode;
+use axum::response::Json as ResponseJson;
+use axum::routing::post;
+use dashmap::DashMap;
+use reqwest::Client;
 use std::collections::{HashMap, VecDeque};
 use std::env;
 use std::sync::Arc;
 use std::time::Duration;
-use axum::extract::{Json, State};
-use axum::http::StatusCode;
-use axum::response::Json as ResponseJson;
-use axum::Router;
-use axum::routing::post;
-use reqwest::Client;
 use tokio::net::TcpListener;
 use tokio::sync::{Mutex, mpsc};
-use tracing::{error, debug, warn, info, instrument};
-use dashmap::DashMap;
-use crate::types::*;
+use tracing::{debug, error, info, instrument, warn};
 
 const CHATGPT_MODEL: &str = "gpt-4.1-mini";
 const HISTORY_LIMIT: usize = 20;
@@ -33,7 +33,7 @@ enum AppError {
     #[error("Network error: {0}")]
     Network(#[from] reqwest::Error),
     #[error("Serialization error: {0}")]
-    Serialization(#[from] serde_json::Error)
+    Serialization(#[from] serde_json::Error),
 }
 
 type Result<T> = std::result::Result<T, AppError>;
@@ -45,7 +45,7 @@ struct AppState {
     sms_send_url: String,
     sms_send_auth: Option<String>,
     openai_key: String,
-    http_client: Client
+    http_client: Client,
 }
 
 impl AppState {
@@ -58,10 +58,12 @@ impl AppState {
         let state = Self {
             message_history: Arc::new(Mutex::new(HashMap::new())),
             phone_queues: Arc::new(DashMap::new()),
-            sms_send_url: env::var("SMS_SEND_URL").map_err(|_| AppError::MissingEnvironmentVariable("SMS_SEND_URL"))?,
+            sms_send_url: env::var("SMS_SEND_URL")
+                .map_err(|_| AppError::MissingEnvironmentVariable("SMS_SEND_URL"))?,
             sms_send_auth: env::var("SMS_SEND_AUTH").ok(),
-            openai_key: env::var("OPENAI_KEY").map_err(|_| AppError::MissingEnvironmentVariable("OPENAI_KEY"))?,
-            http_client
+            openai_key: env::var("OPENAI_KEY")
+                .map_err(|_| AppError::MissingEnvironmentVariable("OPENAI_KEY"))?,
+            http_client,
         };
         Ok(state)
     }
@@ -79,16 +81,26 @@ impl AppState {
         let state_clone = self.clone();
 
         // Insert the sender into the map
-        self.phone_queues.insert(phone_number.to_string(), tx.clone());
+        self.phone_queues
+            .insert(phone_number.to_string(), tx.clone());
 
         // Spawn worker task for this phone number
         tokio::spawn(async move {
-            debug!("Started queue worker for phone number: {}", phone_number_clone);
+            debug!(
+                "Started queue worker for phone number: {}",
+                phone_number_clone
+            );
 
             while let Some(task) = rx.recv().await {
                 debug!("Processing queued message for {}", task.phone_number);
 
-                if let Err(e) = process_message(state_clone.clone(), task.phone_number.clone(), task.message_content).await {
+                if let Err(e) = process_message(
+                    state_clone.clone(),
+                    task.phone_number.clone(),
+                    task.message_content,
+                )
+                .await
+                {
                     error!("Failed to process message for {}: {}", task.phone_number, e);
                 }
             }
@@ -182,7 +194,10 @@ impl AppState {
                     }
                 } else {
                     let status = response.status();
-                    let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+                    let error_text = response
+                        .text()
+                        .await
+                        .unwrap_or_else(|_| "Unknown error".to_string());
                     error!("ChatGPT API error: {} - {}", status, error_text);
                     Err(AppError::OpenAI(format!("{}: {}", status, error_text)))
                 }
@@ -215,7 +230,10 @@ impl AppState {
                     Ok(())
                 } else {
                     let status = response.status();
-                    let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+                    let error_text = response
+                        .text()
+                        .await
+                        .unwrap_or_else(|_| "Unknown error".to_string());
                     error!("SMS API error: {} - {}", status, error_text);
                     Err(AppError::Sms(format!("{}: {}", status, error_text)))
                 }
@@ -252,7 +270,6 @@ async fn process_message(
     phone_number: String,
     message_content: String,
 ) -> Result<()> {
-
     // Check if this is a history clear command.
     if message_content.trim() == "#" {
         debug!("Received history clear command from {}", phone_number);
@@ -308,7 +325,10 @@ async fn http_webhook(
     Json(payload): Json<WebhookPayload>,
 ) -> std::result::Result<StatusCode, (StatusCode, ResponseJson<ErrorResponse>)> {
     if payload.webhook_type != "incoming" {
-        warn!("Received non-incoming webhook type: {}", payload.webhook_type);
+        warn!(
+            "Received non-incoming webhook type: {}",
+            payload.webhook_type
+        );
         return Err((
             StatusCode::BAD_REQUEST,
             ResponseJson(ErrorResponse {
@@ -320,12 +340,18 @@ async fn http_webhook(
     // Ignore non-international numbers such as carrier numbers.
     let phone_number = payload.data.phone_number;
     if !phone_number.starts_with("+") {
-        warn!("Discarding incoming non international number format: {}", phone_number);
+        warn!(
+            "Discarding incoming non international number format: {}",
+            phone_number
+        );
         return Ok(StatusCode::OK);
     }
 
     let message_content = payload.data.message_content.trim().to_string();
-    debug!("Received message from {}, queuing for processing", phone_number);
+    debug!(
+        "Received message from {}, queuing for processing",
+        phone_number
+    );
 
     // Send task to queue for this number.
     let sender = state.get_or_create_queue(&phone_number).await;
@@ -334,7 +360,10 @@ async fn http_webhook(
         message_content,
     };
     if let Err(_) = sender.send(task) {
-        error!("Failed to queue message for {}: receiver dropped", phone_number);
+        error!(
+            "Failed to queue message for {}: receiver dropped",
+            phone_number
+        );
         return Err((
             StatusCode::INTERNAL_SERVER_ERROR,
             ResponseJson(ErrorResponse {
@@ -351,8 +380,7 @@ async fn http_webhook(
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info".into())
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
         .init();
 
