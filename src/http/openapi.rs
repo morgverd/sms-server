@@ -82,7 +82,7 @@ impl Modify for OpenApiModifier {
                 "401",
                 "Unauthorized",
                 r#"{"success": false, "error": "Invalid token"}"#,
-            )
+            ),
         ];
         for path_item in openapi.paths.paths.values_mut() {
             for op in [&mut path_item.get, &mut path_item.post]
@@ -157,7 +157,7 @@ mod tests {
     #[test]
     fn export_openapi_spec() {
         let spec = ApiDoc::openapi().to_json().unwrap();
-        std::fs::write("openapi.json", &spec).expect("Failed to write openapi.json");
+        std::fs::write("../../docs/redoc/openapi.json", &spec).expect("Failed to write openapi.json");
         println!("Wrote openapi.json ({} bytes)", spec.len());
     }
 }
