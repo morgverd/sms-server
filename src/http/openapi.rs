@@ -157,7 +157,8 @@ mod tests {
     #[test]
     fn export_openapi_spec() {
         let spec = ApiDoc::openapi().to_json().unwrap();
-        std::fs::write("../../docs/redoc/openapi.json", &spec).expect("Failed to write openapi.json");
+        std::fs::write("../../docs/redoc/openapi.json", &spec)
+            .expect("Failed to write openapi.json");
         println!("Wrote openapi.json ({} bytes)", spec.len());
     }
 }
