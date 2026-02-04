@@ -82,7 +82,7 @@ impl Modify for OpenApiModifier {
                 "401",
                 "Unauthorized",
                 r#"{"success": false, "error": "Invalid token"}"#,
-            )
+            ),
         ];
         for path_item in openapi.paths.paths.values_mut() {
             for op in [&mut path_item.get, &mut path_item.post]
