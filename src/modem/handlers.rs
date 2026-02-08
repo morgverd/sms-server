@@ -1,7 +1,7 @@
 use crate::modem::commands::CommandState;
 use crate::modem::parsers::*;
 use crate::modem::types::{
-    ModemIncomingMessage, ModemRequest, ModemResponse, ModemStatus, UnsolicitedMessageType,
+    ModemIncomingMessage, ModemRequest, ModemResponse, ModemStatus, UnsolicitedMessageKind,
 };
 use crate::modem::worker::WorkerEvent;
 use anyhow::{anyhow, bail, Result};
@@ -64,13 +64,13 @@ impl ModemEventHandlers {
 
     pub async fn handle_unsolicited_message(
         &self,
-        message_type: &UnsolicitedMessageType,
+        message_kind: &UnsolicitedMessageKind,
         content: &str,
     ) -> Result<Option<ModemIncomingMessage>> {
-        debug!("UnsolicitedMessage: {:?} -> {:?}", &message_type, &content);
+        debug!("UnsolicitedMessage: {:?} -> {:?}", &message_kind, &content);
 
-        match message_type {
-            UnsolicitedMessageType::IncomingSMS => {
+        match message_kind {
+            UnsolicitedMessageKind::IncomingSMS => {
                 let content_hex = hex::decode(content).map_err(|e| anyhow!(e))?;
                 let deliver_pdu =
                     DeliverPdu::try_from(content_hex.as_slice()).map_err(|e| anyhow!(e))?;
@@ -99,7 +99,7 @@ impl ModemEventHandlers {
 
                 Ok(Some(ModemIncomingMessage::IncomingSMS(incoming)))
             }
-            UnsolicitedMessageType::DeliveryReport => {
+            UnsolicitedMessageKind::DeliveryReport => {
                 let content_hex = hex::decode(content).map_err(|e| anyhow!(e))?;
                 let status_report_pdu =
                     StatusReportPdu::try_from(content_hex.as_slice()).map_err(|e| anyhow!(e))?;
@@ -111,15 +111,15 @@ impl ModemEventHandlers {
                 };
                 Ok(Some(ModemIncomingMessage::DeliveryReport(report)))
             }
-            UnsolicitedMessageType::NetworkStatusChange => {
+            UnsolicitedMessageKind::NetworkStatusChange => {
                 Ok(Some(ModemIncomingMessage::NetworkStatusChange(0)))
             }
-            UnsolicitedMessageType::ShuttingDown => {
+            UnsolicitedMessageKind::ShuttingDown => {
                 warn!("The modem is shutting down!");
                 self.set_status(ModemStatus::ShuttingDown).await?;
                 Ok(None)
             }
-            UnsolicitedMessageType::GNSSPositionReport => Ok(Some(
+            UnsolicitedMessageKind::GNSSPositionReport => Ok(Some(
                 ModemIncomingMessage::GNSSPositionReport(parse_cgnsinf_response(content, true)?),
             )),
         }

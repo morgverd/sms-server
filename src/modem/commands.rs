@@ -67,9 +67,10 @@ impl OutgoingCommand {
     /// Get the request specific timeout, this will use whatever is
     /// provided in the response or the base timeout from the ModemRequest.
     pub fn get_request_timeout(&self) -> Duration {
-        self.timeout
-            .map(|t| Duration::from_secs(t as u64))
-            .unwrap_or_else(|| self.request.get_default_timeout())
+        self.timeout.map_or_else(
+            || self.request.get_default_timeout(),
+            |t| Duration::from_secs(t as u64),
+        )
     }
 
     /// Respond to the command with a final response.

@@ -114,9 +114,7 @@ impl ModemSender {
         }
 
         // Wait for response with timeout.
-        let timeout = timeout
-            .map(|s| Duration::from_secs(s as u64 + 1))
-            .unwrap_or(SEND_TIMEOUT);
+        let timeout = timeout.map_or(SEND_TIMEOUT, |s| Duration::from_secs(s as u64 + 1));
         match tokio::time::timeout(timeout, rx).await {
             Ok(Ok(response)) => {
                 debug!("Command sequence {sequence} completed with response: {response:?}");

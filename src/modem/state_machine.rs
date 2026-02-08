@@ -2,7 +2,7 @@ use crate::modem::buffer::LineEvent;
 use crate::modem::commands::{CommandContext, CommandState, OutgoingCommand};
 use crate::modem::handlers::ModemEventHandlers;
 use crate::modem::types::{
-    ModemEvent, ModemIncomingMessage, ModemResponse, UnsolicitedMessageType,
+    ModemEvent, ModemIncomingMessage, ModemResponse, UnsolicitedMessageKind,
 };
 use crate::modem::worker::WorkerEvent;
 use anyhow::{bail, Result};
@@ -22,7 +22,7 @@ impl CommandExecution {
         let context = CommandContext {
             sequence: command.sequence,
             state: command_state,
-            response_buffer: String::new(),
+            response_buffer: String::default(),
         };
 
         let timeout = command.get_request_timeout();
@@ -49,7 +49,7 @@ enum StateMachineState {
     Idle,
     Command(CommandExecution),
     UnsolicitedMessage {
-        message_type: UnsolicitedMessageType,
+        message_kind: UnsolicitedMessageKind,
         interrupted_command: Option<CommandExecution>,
     },
 }
@@ -146,13 +146,13 @@ impl ModemStateMachine {
             // Handle unsolicited message completion
             (
                 StateMachineState::UnsolicitedMessage {
-                    message_type,
+                    message_kind,
                     interrupted_command,
                     ..
                 },
                 ModemEvent::Data(content),
             ) => {
-                self.handle_unsolicited(main_tx, &message_type, &content)
+                self.handle_unsolicited(main_tx, &message_kind, &content)
                     .await;
                 Ok(match interrupted_command {
                     Some(execution) => StateMachineState::Command(execution),
@@ -164,20 +164,20 @@ impl ModemStateMachine {
             (
                 StateMachineState::Command(execution),
                 ModemEvent::UnsolicitedMessage {
-                    message_type,
+                    message_kind,
                     header,
                 },
             ) => {
                 let sequence = execution.context.sequence;
                 debug!("Unsolicited message header received during command {sequence}: {header:?}");
 
-                if !message_type.has_next_line() {
-                    self.handle_unsolicited(main_tx, &message_type, &header)
+                if !message_kind.has_next_line() {
+                    self.handle_unsolicited(main_tx, &message_kind, &header)
                         .await;
                     Ok(StateMachineState::Command(execution))
                 } else {
                     Ok(StateMachineState::UnsolicitedMessage {
-                        message_type,
+                        message_kind,
                         interrupted_command: Some(execution),
                     })
                 }
@@ -185,19 +185,19 @@ impl ModemStateMachine {
             (
                 StateMachineState::Idle,
                 ModemEvent::UnsolicitedMessage {
-                    message_type,
+                    message_kind,
                     header,
                 },
             ) => {
                 debug!("Unsolicited message header received while idle: {header:?}");
 
-                if !message_type.has_next_line() {
-                    self.handle_unsolicited(main_tx, &message_type, &header)
+                if !message_kind.has_next_line() {
+                    self.handle_unsolicited(main_tx, &message_kind, &header)
                         .await;
                     Ok(StateMachineState::Idle)
                 } else {
                     Ok(StateMachineState::UnsolicitedMessage {
-                        message_type,
+                        message_kind,
                         interrupted_command: None,
                     })
                 }
@@ -310,12 +310,12 @@ impl ModemStateMachine {
     async fn handle_unsolicited(
         &self,
         main_tx: &mpsc::UnboundedSender<ModemIncomingMessage>,
-        message_type: &UnsolicitedMessageType,
+        message_kind: &UnsolicitedMessageKind,
         content: &str,
     ) {
         match self
             .handlers
-            .handle_unsolicited_message(message_type, content)
+            .handle_unsolicited_message(message_kind, content)
             .await
         {
             Ok(message) => {
@@ -331,9 +331,9 @@ impl ModemStateMachine {
         let trimmed = content.trim();
 
         // Prioritise unsolicited messages regardless of current state.
-        if let Some(message_type) = UnsolicitedMessageType::from_header(trimmed) {
+        if let Some(message_kind) = UnsolicitedMessageKind::from_header(trimmed) {
             return ModemEvent::UnsolicitedMessage {
-                message_type,
+                message_kind,
                 header: trimmed.to_string(),
             };
         }

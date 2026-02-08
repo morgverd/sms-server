@@ -112,7 +112,7 @@ impl From<ModemStatus> for ModemStatusUpdateState {
 #[derive(Debug)]
 pub enum ModemEvent {
     UnsolicitedMessage {
-        message_type: UnsolicitedMessageType,
+        message_kind: UnsolicitedMessageKind,
         header: String,
     },
     CommandResponse(String),
@@ -121,27 +121,27 @@ pub enum ModemEvent {
 }
 
 #[derive(Debug)]
-pub enum UnsolicitedMessageType {
+pub enum UnsolicitedMessageKind {
     IncomingSMS,
     DeliveryReport,
     NetworkStatusChange,
     ShuttingDown,
     GNSSPositionReport,
 }
-impl UnsolicitedMessageType {
+impl UnsolicitedMessageKind {
     pub fn from_header(header: &str) -> Option<Self> {
         if header.starts_with("+CMT") {
-            Some(UnsolicitedMessageType::IncomingSMS)
+            Some(UnsolicitedMessageKind::IncomingSMS)
         } else if header.starts_with("+CDS") {
-            Some(UnsolicitedMessageType::DeliveryReport)
+            Some(UnsolicitedMessageKind::DeliveryReport)
         } else if header.starts_with("+CGREG:") {
-            Some(UnsolicitedMessageType::NetworkStatusChange)
+            Some(UnsolicitedMessageKind::NetworkStatusChange)
         } else if header.starts_with("+UGNSINF") {
-            Some(UnsolicitedMessageType::GNSSPositionReport)
+            Some(UnsolicitedMessageKind::GNSSPositionReport)
         } else {
             match header {
                 "NORMAL POWER DOWN" | "POWER DOWN" | "SHUTDOWN" | "POWERING DOWN" => {
-                    Some(UnsolicitedMessageType::ShuttingDown)
+                    Some(UnsolicitedMessageKind::ShuttingDown)
                 }
                 _ => None,
             }
@@ -151,8 +151,8 @@ impl UnsolicitedMessageType {
     /// Check if the notification contains additional data on a new line.
     pub fn has_next_line(&self) -> bool {
         match self {
-            UnsolicitedMessageType::ShuttingDown => false,
-            UnsolicitedMessageType::GNSSPositionReport => false,
+            UnsolicitedMessageKind::ShuttingDown => false,
+            UnsolicitedMessageKind::GNSSPositionReport => false,
             _ => true,
         }
     }

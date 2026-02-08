@@ -1,10 +1,10 @@
 [package]
 name = "sms-server"
-version = "3.5.6"
+version = "3.6.0"
 edition = "2021"
 license = "AGPL-3.0-only"
 build = "build.rs"
-description = "SMS server for GSM modem hardware with HTTP/WebSocket APIs, encrypted message storage, delivery tracking, and GNSS location support. Designed for Raspberry Pi + GSM HAT setup."
+description = "Self-hosted SMS gateway for Raspberry Pi and GSM modem. OpenAPI HTTP/WebSocket APIs, encrypted message storage, delivery tracking, and GNSS location support."
 keywords = ["sms", "gsm", "sim", "sms-server"]
 categories = ["hardware-support", "web-programming::websocket", "web-programming::http-server", "database"]
 homepage = "https://github.com/morgverd/sms-server"
