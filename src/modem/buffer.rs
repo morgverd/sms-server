@@ -88,8 +88,7 @@ impl LineBuffer {
             let trim_to = self.buffer[..keep_from]
                 .iter()
                 .rposition(|&b| b == b'\n')
-                .map(|pos| pos + 1)
-                .unwrap_or(keep_from);
+                .map_or(keep_from, |pos| pos + 1);
 
             self.buffer.drain(..trim_to);
         }
