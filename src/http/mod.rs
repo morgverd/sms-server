@@ -88,8 +88,12 @@ pub fn create_app(
         .layer(SetResponseHeaderLayer::overriding(
             HeaderName::from_static("x-version"),
             HeaderValue::from_static(crate::VERSION),
-        ))
-        .layer(ServiceBuilder::new().layer(CorsLayer::permissive()));
+        ));
+
+    // Add CORS headers for browser access.
+    if config.permissive_cors {
+        router = router.layer(ServiceBuilder::new().layer(CorsLayer::permissive()));
+    }
 
     // Add optional websocket route if there is a manager.
     if websocket.is_some() {

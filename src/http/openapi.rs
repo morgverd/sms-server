@@ -1,5 +1,5 @@
 use crate::http::routes::*;
-use utoipa::openapi::security::{Http, HttpAuthScheme, SecurityScheme};
+use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 use utoipa::openapi::{ContentBuilder, RefOr, Response};
 use utoipa::Modify;
 
@@ -66,8 +66,8 @@ impl Modify for OpenApiModifier {
         // Security scheme
         if let Some(components) = openapi.components.as_mut() {
             components.add_security_scheme(
-                "bearer_auth",
-                SecurityScheme::Http(Http::new(HttpAuthScheme::Bearer)),
+                "api_key",
+                SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::new("Authorization"))),
             );
         }
 

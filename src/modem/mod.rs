@@ -3,7 +3,7 @@ use crate::modem::commands::OutgoingCommand;
 use crate::modem::sender::ModemSender;
 use crate::modem::types::ModemIncomingMessage;
 use crate::modem::worker::ModemWorker;
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use tokio::sync::mpsc;
 use tokio_serial::SerialPortBuilderExt;
 use tracing::log::error;
@@ -40,7 +40,7 @@ impl ModemManager {
 
         let port = tokio_serial::new(&self.config.device, self.config.baud_rate)
             .open_native_async()
-            .map_err(|e| anyhow!("Failed to open serial port {}: {}", self.config.device, e))?;
+            .context("Failed to open serial port!")?;
 
         let worker = ModemWorker::new(port, self.main_tx.clone(), self.config.clone())?;
         let handle = tokio::spawn(async move {

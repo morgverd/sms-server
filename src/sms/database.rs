@@ -2,7 +2,7 @@
 
 use crate::config::DatabaseConfig;
 use crate::sms::encryption::SMSEncryption;
-use anyhow::{anyhow, Result};
+use anyhow::{Context, Result};
 use sms_types::sms::{SmsDeliveryReport, SmsMessage};
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous};
 use sqlx::{Row, SqlitePool};
@@ -69,7 +69,7 @@ impl SMSDatabase {
             })
             .connect_with(connection_options)
             .await
-            .map_err(|e| anyhow!(e))?;
+            .context("Failed to connect to database")?;
 
         let db = Self {
             pool,
@@ -83,7 +83,7 @@ impl SMSDatabase {
         sqlx::raw_sql(SCHEMA_SQL)
             .execute(&self.pool)
             .await
-            .map_err(|e| anyhow!(e))?;
+            .context("Failed to init tables")?;
 
         debug!("SMSDatabase tables initialized successfully!");
         Ok(())
@@ -107,7 +107,7 @@ impl SMSDatabase {
             .bind(message.status)
             .execute(&self.pool)
             .await
-            .map_err(|e| anyhow!(e))?;
+            .context("Failed to insert SmsMessage")?;
 
         Ok(result.last_insert_rowid())
     }
@@ -123,7 +123,7 @@ impl SMSDatabase {
                 .bind(error_message)
                 .execute(&self.pool)
                 .await
-                .map_err(|e| anyhow!(e))?;
+                .context("Failed to insert send failure")?;
 
         Ok(result.last_insert_rowid())
     }
@@ -142,7 +142,7 @@ impl SMSDatabase {
         .bind(is_final)
         .execute(&self.pool)
         .await
-        .map_err(|e| anyhow!(e))?;
+        .context("Failed to insert delivery report")?;
 
         Ok(result.last_insert_rowid())
     }
@@ -159,7 +159,7 @@ impl SMSDatabase {
             .bind(reference_id)
             .fetch_optional(&self.pool)
             .await
-            .map_err(|e| anyhow!(e))?;
+            .context("Failed to query appropriate target message for delivery report")?;
 
         Ok(result)
     }
@@ -183,7 +183,7 @@ impl SMSDatabase {
             .bind(message_id)
             .execute(&self.pool)
             .await
-            .map_err(|e| anyhow!(e))?;
+            .context("Failed to update message status")?;
 
         Ok(())
     }
@@ -202,14 +202,14 @@ impl SMSDatabase {
                     .bind(&name)
                     .execute(&self.pool)
                     .await
-                    .map_err(|e| anyhow!(e))?;
+                    .context("Failed to insert friendly name")?;
             }
             None => {
                 sqlx::query("DELETE FROM friendly_names WHERE phone_number = ?")
                     .bind(&phone_number)
                     .execute(&self.pool)
                     .await
-                    .map_err(|e| anyhow!(e))?;
+                    .context("Failed to delete friendly name")?;
             }
         }
 
@@ -221,7 +221,7 @@ impl SMSDatabase {
             .bind(phone_number)
             .fetch_optional(&self.pool)
             .await
-            .map_err(|e| anyhow!(e))
+            .context("Failed to query friendly name")
     }
 
     pub async fn get_latest_numbers(
@@ -241,7 +241,7 @@ impl SMSDatabase {
         let result: Vec<(String, Option<String>)> = sqlx::query_as(&query)
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| anyhow!(e))?;
+            .context("Failed to query latest numbers")?;
 
         Ok(result)
     }
@@ -265,7 +265,7 @@ impl SMSDatabase {
             .bind(phone_number)
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| anyhow!(e))?;
+            .context("Failed to query SmsMessage's")?;
 
         result
             .into_iter()
@@ -305,6 +305,6 @@ impl SMSDatabase {
             .bind(message_id)
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| anyhow!(e))
+            .context("Failed to query delivery reports")
     }
 }

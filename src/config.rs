@@ -16,9 +16,6 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 pub struct AppConfig {
     pub database: DatabaseConfig,
 
-    #[cfg(feature = "sentry")]
-    pub sentry: Option<SentryConfig>,
-
     #[serde(default)]
     pub modem: ModemConfig,
 
@@ -28,6 +25,9 @@ pub struct AppConfig {
 
     #[serde(default)]
     pub webhooks: Option<Vec<ConfiguredWebhook>>,
+
+    #[cfg(feature = "sentry")]
+    pub sentry: Option<SentryConfig>,
 }
 impl AppConfig {
     pub fn load(config_filepath: Option<PathBuf>) -> Result<Self> {
@@ -146,24 +146,6 @@ impl ConfiguredWebhook {
     }
 }
 
-#[cfg(feature = "sentry")]
-#[derive(Debug, Deserialize)]
-pub struct SentryConfig {
-    pub dsn: String,
-
-    #[serde(default)]
-    pub environment: Option<String>,
-
-    #[serde(default)]
-    pub server_name: Option<String>,
-
-    #[serde(default)]
-    pub debug: bool,
-
-    #[serde(default = "default_true")]
-    pub send_default_pii: bool,
-}
-
 #[cfg(feature = "http-server")]
 #[derive(Debug, Clone, Deserialize)]
 pub struct HTTPConfig {
@@ -182,6 +164,9 @@ pub struct HTTPConfig {
     #[serde(default = "default_true")]
     pub websocket_enabled: bool,
 
+    #[serde(default = "default_true")]
+    pub permissive_cors: bool,
+
     #[serde(default)]
     pub phone_number: Option<String>,
 
@@ -197,6 +182,7 @@ impl Default for HTTPConfig {
             send_international_format_only: default_true(),
             require_authentication: default_true(),
             websocket_enabled: default_true(),
+            permissive_cors: default_true(),
             phone_number: None,
             tls: None,
         }
@@ -214,6 +200,24 @@ pub struct TLSConfig {
 
     #[serde(deserialize_with = "deserialize_existing_file")]
     pub key_path: PathBuf,
+}
+
+#[cfg(feature = "sentry")]
+#[derive(Debug, Deserialize)]
+pub struct SentryConfig {
+    pub dsn: String,
+
+    #[serde(default)]
+    pub environment: Option<String>,
+
+    #[serde(default)]
+    pub server_name: Option<String>,
+
+    #[serde(default)]
+    pub debug: bool,
+
+    #[serde(default = "default_true")]
+    pub send_default_pii: bool,
 }
 
 fn default_modem_device() -> String {
