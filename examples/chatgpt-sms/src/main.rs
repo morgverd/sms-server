@@ -333,7 +333,7 @@ async fn http_webhook(
         phone_number: phone_number.clone(),
         message_content,
     };
-    if let Err(_) = sender.send(task) {
+    if sender.send(task).is_err() {
         error!("Failed to queue message for {}: receiver dropped", phone_number);
         return Err((
             StatusCode::INTERNAL_SERVER_ERROR,
