@@ -80,8 +80,8 @@ impl ModemSender {
         for request in create_sms_requests(message)? {
             let response = self.send_request(request, message.timeout).await?;
 
-            // If one of the message parts return an error response, then return immediately
-            // as there's no use in continuing to send message parts for a broken concatenation.
+            // FIXME: If one of the message parts return an error response, then return immediately
+            //  as there's no use in continuing to send message parts for a broken concatenation.
             if matches!(response, ModemResponse::Error(_)) {
                 return Ok((false, Some(response)));
             }

@@ -4,7 +4,7 @@ use crate::sms::SMSEncryptionKey;
 use aes_gcm::aead::Aead;
 use aes_gcm::aes::Aes256;
 use aes_gcm::{Aes256Gcm, AesGcm, KeyInit, Nonce};
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use base64::engine::general_purpose;
 use base64::Engine;
 use cipher::consts::U12;
@@ -28,7 +28,7 @@ impl SMSEncryption {
         let ciphertext = self
             .cipher
             .encrypt(nonce, plaintext.as_bytes())
-            .map_err(|e| anyhow!("Encryption failed: {}", e))?;
+            .map_err(anyhow::Error::msg)?;
 
         let mut encrypted_data = nonce_bytes.to_vec();
         encrypted_data.extend_from_slice(&ciphertext);
@@ -39,7 +39,7 @@ impl SMSEncryption {
     pub fn decrypt(&self, encrypted_data: &str) -> Result<String> {
         let encrypted_bytes = general_purpose::STANDARD
             .decode(encrypted_data)
-            .map_err(|e| anyhow!("Base64 decode failed: {}", e))?;
+            .map_err(anyhow::Error::msg)?;
 
         if encrypted_bytes.len() < 12 {
             return Err(anyhow!("Invalid encrypted data length"));
@@ -51,8 +51,8 @@ impl SMSEncryption {
         let plaintext = self
             .cipher
             .decrypt(nonce, ciphertext)
-            .map_err(|e| anyhow!("Decryption failed: {}", e))?;
+            .map_err(anyhow::Error::msg)?;
 
-        String::from_utf8(plaintext).map_err(|e| anyhow!("UTF-8 conversion failed: {}", e))
+        String::from_utf8(plaintext).context("UTF-8 conversion failed")
     }
 }

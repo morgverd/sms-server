@@ -74,6 +74,38 @@ impl ModemStateMachine {
         self.state = StateMachineState::Idle;
     }
 
+    pub async fn fail_active_command(&mut self, reason: &str) {
+        let execution = match take(&mut self.state) {
+            StateMachineState::Command(execution) => {
+                self.state = StateMachineState::Idle;
+                Some(execution)
+            }
+            StateMachineState::UnsolicitedMessage {
+                interrupted_command: Some(execution),
+                ..
+            } => {
+                self.state = StateMachineState::Idle;
+                Some(execution)
+            }
+            other => {
+                // No active command — restore state unchanged.
+                self.state = other;
+                None
+            }
+        };
+
+        if let Some(mut execution) = execution {
+            warn!(
+                "Failing active command #{} with reason: {reason}",
+                execution.command.sequence
+            );
+            let _ = execution
+                .command
+                .respond(ModemResponse::Error(reason.to_string()))
+                .await;
+        }
+    }
+
     pub async fn start_command(&mut self, cmd: OutgoingCommand) -> Result<()> {
         debug!("Starting command: {cmd:?}");
 
@@ -339,16 +371,15 @@ impl ModemStateMachine {
         }
 
         // Command completion indicators - only relevant when executing commands.
-        if matches!(self.state, StateMachineState::Command(_))
-            && (trimmed == "OK"
+        if let StateMachineState::Command(exec) = &self.state {
+            if trimmed == "OK"
                 || trimmed == "ERROR"
+                || trimmed.starts_with(exec.command.request.expected_response_prefix())
                 || trimmed.starts_with("+CME ERROR:")
                 || trimmed.starts_with("+CMS ERROR:")
-                || trimmed.starts_with("+CMGS:")
-                || trimmed.starts_with("+CSQ:")
-                || trimmed.starts_with("+CREG:"))
-        {
-            return ModemEvent::CommandResponse(trimmed.to_string());
+            {
+                return ModemEvent::CommandResponse(trimmed.to_string());
+            }
         }
 
         ModemEvent::Data(trimmed.to_string())

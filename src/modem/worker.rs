@@ -3,7 +3,7 @@ use crate::modem::buffer::LineBuffer;
 use crate::modem::commands::OutgoingCommand;
 use crate::modem::state_machine::ModemStateMachine;
 use crate::modem::types::{ModemIncomingMessage, ModemResponse, ModemStatus};
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::mpsc;
@@ -99,7 +99,7 @@ impl ModemWorker {
         if self.status != ModemStatus::Online {
             return Err(anyhow!("Modem is offline"));
         }
-        self.port.write_all(data).await.map_err(|e| anyhow!(e))
+        self.port.write_all(data).await.map_err(anyhow::Error::from)
     }
 
     pub async fn run(mut self, mut command_rx: mpsc::Receiver<OutgoingCommand>) -> Result<()> {
@@ -136,6 +136,7 @@ impl ModemWorker {
                             match result {
                                 Ok(0) => {
                                     warn!("Serial port closed, going offline");
+                                    self.state_machine.fail_active_command("Serial port closed").await;
                                     self.set_status(ModemStatus::Offline);
                                 },
                                 Ok(n) => {
@@ -143,12 +144,16 @@ impl ModemWorker {
                                     for line_event in line_buffer.process_data(&read_buffer[..n]) {
                                         if let Err(e) = self.state_machine.transition_state(main_tx, line_event).await {
                                             error!("Error processing modem event: {e:?}");
+                                            self.state_machine.fail_active_command(
+                                                &format!("State machine error: {e}")
+                                            ).await;
                                             self.state_machine.reset_to_idle();
                                         }
                                     }
                                 },
                                 Err(e) => {
                                     error!("Read error: {e}");
+                                    self.state_machine.fail_active_command(&format!("Read error: {e}")).await;
                                     self.set_status(ModemStatus::Offline);
                                 }
                             }
@@ -173,6 +178,11 @@ impl ModemWorker {
                             error!("Error handling worker event during shutdown: {e}");
                         }
                     }
+
+                    // Fail any active command in the state machine
+                    self.state_machine
+                        .fail_active_command("Modem is shutting down")
+                        .await;
 
                     // Reject any pending commands
                     while let Ok(mut cmd) = command_rx.try_recv() {
@@ -228,6 +238,10 @@ impl ModemWorker {
             WorkerEvent::WriteCommand(data) => {
                 if let Err(e) = self.write(&data).await {
                     error!("Failed to write command: {e}");
+                    self.state_machine
+                        .fail_active_command(&format!("Write failed: {e}"))
+                        .await;
+
                     self.set_status(ModemStatus::Offline);
                 }
             }
@@ -350,23 +364,22 @@ impl ModemWorker {
         let mut response = Vec::new();
         let mut buf = [0u8; 1024];
 
-        let timeout = Duration::from_millis(50);
         tokio::time::timeout(Duration::from_secs(10), async {
             loop {
-                match self.port.try_read(&mut buf) {
-                    Ok(n) if n > 0 => {
-                        response.extend_from_slice(&buf[..n]);
-                        let response_str = String::from_utf8_lossy(&response);
+                let n = self
+                    .port
+                    .read(&mut buf)
+                    .await
+                    .context("Read error during initialization")?;
 
-                        if response_str.contains("OK\r\n") || response_str.contains("ERROR") {
-                            break;
-                        }
-                    }
-                    Ok(_) => tokio::time::sleep(timeout).await,
-                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                        tokio::time::sleep(timeout).await
-                    }
-                    Err(e) => return Err(anyhow!("Read error during initialization: {}", e)),
+                if n == 0 {
+                    return Err(anyhow!("Serial port closed during initialization"));
+                }
+
+                response.extend_from_slice(&buf[..n]);
+                let response_str = String::from_utf8_lossy(&response);
+                if response_str.contains("OK\r\n") || response_str.contains("ERROR") {
+                    break;
                 }
             }
             Ok(())

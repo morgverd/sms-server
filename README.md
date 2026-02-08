@@ -33,13 +33,13 @@ Secure, flexible, and dependable.
 
 ## Documentation
 
-| Document                                                     | Description                                        |
-|--------------------------------------------------------------|----------------------------------------------------|
-| [OpenAPI Swagger UI](https://morgverd.github.io/sms-server/) | HTTP OpenAPI Swagger UI from latest build          |
-| [Configuration Guide](docs/configuration.md)                 | Complete configuration reference with examples     |
-| [Event Types](docs/events.md)                                | Available events received via WebSocket or Webhook |
-| [HTTP API Reference](docs/http.md)                           | REST API endpoints for SMS operations              |
-| [WebSocket Guide](docs/websocket.md)                         | Real-time event streaming setup                    |
+| Document                                                        | Description                                        |
+|-----------------------------------------------------------------|----------------------------------------------------|
+| [OpenAPI Documentation](https://morgverd.github.io/sms-server/) | HTTP OpenAPI UI from latest build                  |
+| [Configuration Guide](docs/configuration.md)                    | Complete configuration reference with examples     |
+| [Event Types](docs/events.md)                                   | Available events received via WebSocket or Webhook |
+| [HTTP API Reference](docs/http.md)                              | REST API endpoints for SMS operations              |
+| [WebSocket Guide](docs/websocket.md)                            | Real-time event streaming setup                    |
 
 ## Features
 
@@ -52,7 +52,7 @@ The feature code is used in the build version metadata suffix. Eg: `1.0.0#ghtr` 
 | `db-sqlite`   |      | ✔️      | SQLite database connection driver (currently only database supported)                  |
 | `tls-rustls`  | `tr` | ✔️      | Uses rustls and aws-lc-rs for TLS all connections                                      | 
 | `tls-native`  | `tn` |         | Uses openssl for http-server (if enabled) and native-tls for all other TLS connections |
-| `openapi`     | `o`  |         | Adds utoipa OpenAPI spec generation to HTTP routes, includes swagger-ui at /docs!      |
+| `openapi`     | `o`  |         | Adds utoipa OpenAPI spec generation to HTTP routes, includes redoc-ui at /docs!        |
 | `sentry`      | `s`  |         | Adds Sentry error reporting / logging integration                                      |
 
 ## Examples

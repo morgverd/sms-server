@@ -4,7 +4,7 @@ use crate::modem::types::{
     ModemIncomingMessage, ModemRequest, ModemResponse, ModemStatus, UnsolicitedMessageKind,
 };
 use crate::modem::worker::WorkerEvent;
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Context, Result};
 use sms_pdu::pdu::{DeliverPdu, StatusReportPdu};
 use sms_types::sms::{SmsIncomingMessage, SmsMultipartHeader, SmsPartialDeliveryReport};
 use tokio::sync::mpsc;
@@ -19,6 +19,16 @@ fn get_real_number(phone_number: String) -> String {
     }
 }
 
+/// Guarantee the terminator is always present at compile-time.
+macro_rules! at_cmd {
+    ($cmd:expr) => {
+        concat!($cmd, "\r\n").as_bytes()
+    };
+    ($fmt:expr, $($arg:tt)*) => {{
+        format!(concat!($fmt, "\r\n"), $($arg)*)
+    }};
+}
+
 pub struct ModemEventHandlers {
     worker_event_tx: mpsc::UnboundedSender<WorkerEvent>,
 }
@@ -30,17 +40,17 @@ impl ModemEventHandlers {
     pub async fn command_sender(&self, request: &ModemRequest) -> Result<CommandState> {
         match request {
             ModemRequest::SendSMS { len, .. } => {
-                let command = format!("AT+CMGS={len}\r\n");
+                let command = at_cmd!("AT+CMGS={}", len);
                 self.write(command.as_bytes()).await?;
                 return Ok(CommandState::WaitingForPrompt);
             }
-            ModemRequest::GetNetworkStatus => self.write(b"AT+CREG?\r\n").await?,
-            ModemRequest::GetSignalStrength => self.write(b"AT+CSQ\r\n").await?,
-            ModemRequest::GetNetworkOperator => self.write(b"AT+COPS?\r\n").await?,
-            ModemRequest::GetServiceProvider => self.write(b"AT+CSPN?\r\n").await?,
-            ModemRequest::GetBatteryLevel => self.write(b"AT+CBC\r\n").await?,
-            ModemRequest::GetGNSSStatus => self.write(b"AT+CGPSSTATUS?\r\n").await?,
-            ModemRequest::GetGNSSLocation => self.write(b"AT+CGNSINF\r\n").await?,
+            ModemRequest::GetNetworkStatus => self.write(at_cmd!("AT+CREG?")).await?,
+            ModemRequest::GetSignalStrength => self.write(at_cmd!("AT+CSQ")).await?,
+            ModemRequest::GetNetworkOperator => self.write(at_cmd!("AT+COPS?")).await?,
+            ModemRequest::GetServiceProvider => self.write(at_cmd!("AT+CSPN?")).await?,
+            ModemRequest::GetBatteryLevel => self.write(at_cmd!("AT+CBC")).await?,
+            ModemRequest::GetGNSSStatus => self.write(at_cmd!("AT+CGPSSTATUS?")).await?,
+            ModemRequest::GetGNSSLocation => self.write(at_cmd!("AT+CGNSINF")).await?,
         }
         Ok(CommandState::WaitingForData)
     }
@@ -71,38 +81,35 @@ impl ModemEventHandlers {
 
         match message_kind {
             UnsolicitedMessageKind::IncomingSMS => {
-                let content_hex = hex::decode(content).map_err(|e| anyhow!(e))?;
+                let content_hex =
+                    hex::decode(content).context("Failed to decode IncomingSMS hex content")?;
                 let deliver_pdu =
-                    DeliverPdu::try_from(content_hex.as_slice()).map_err(|e| anyhow!(e))?;
+                    DeliverPdu::try_from(content_hex.as_slice()).map_err(anyhow::Error::msg)?;
 
-                // Decode incoming message data to get user data header which is required for multipart messages.
-                let incoming = match deliver_pdu.get_message_data().decode_message() {
-                    Ok(msg) => {
-                        // Find multipart component, convert into a SmsMultipartHeader.
-                        let user_data_header = msg
-                            .udh
-                            .and_then(|udh| udh.components.into_iter().find(|c| c.id == 0x00))
-                            .map(|component| SmsMultipartHeader::try_from(component.data))
-                            .transpose()
-                            .map_err(|e| anyhow!(e))?;
+                let msg = deliver_pdu
+                    .get_message_data()
+                    .decode_message()
+                    .map_err(anyhow::Error::msg)?;
 
-                        SmsIncomingMessage {
-                            phone_number: get_real_number(
-                                deliver_pdu.originating_address.to_string(),
-                            ),
-                            user_data_header,
-                            content: msg.text,
-                        }
-                    }
-                    Err(e) => bail!("Failed to parse incoming SMS data: {:?}", e),
+                // Find multipart component, convert into a SmsMultipartHeader.
+                let user_data_header = msg
+                    .udh
+                    .and_then(|udh| udh.components.into_iter().find(|c| c.id == 0x00))
+                    .map(|component| SmsMultipartHeader::try_from(component.data))
+                    .transpose()
+                    .map_err(anyhow::Error::msg)?;
+
+                let incoming = SmsIncomingMessage {
+                    phone_number: get_real_number(deliver_pdu.originating_address.to_string()),
+                    user_data_header,
+                    content: msg.text,
                 };
-
                 Ok(Some(ModemIncomingMessage::IncomingSMS(incoming)))
             }
             UnsolicitedMessageKind::DeliveryReport => {
-                let content_hex = hex::decode(content).map_err(|e| anyhow!(e))?;
-                let status_report_pdu =
-                    StatusReportPdu::try_from(content_hex.as_slice()).map_err(|e| anyhow!(e))?;
+                let content_hex = hex::decode(content).map_err(anyhow::Error::msg)?;
+                let status_report_pdu = StatusReportPdu::try_from(content_hex.as_slice())
+                    .map_err(anyhow::Error::msg)?;
 
                 let report = SmsPartialDeliveryReport {
                     status: status_report_pdu.status as u8,
@@ -132,7 +139,7 @@ impl ModemEventHandlers {
     ) -> Result<ModemResponse> {
         debug!("Command response: {request:?} -> {response:?}");
         if !response.trim_end().ends_with("OK") {
-            return Err(anyhow!("Modem response does not end with OK"));
+            bail!("Modem response does not end with OK");
         }
 
         match request {
@@ -181,14 +188,12 @@ impl ModemEventHandlers {
     async fn write(&self, data: &[u8]) -> Result<()> {
         self.worker_event_tx
             .send(WorkerEvent::WriteCommand(data.to_vec()))
-            .map_err(|_| anyhow!("Failed to send write command event"))?;
-        Ok(())
+            .context("Failed to send write command event")
     }
 
     async fn set_status(&self, status: ModemStatus) -> Result<()> {
         self.worker_event_tx
             .send(WorkerEvent::SetStatus(status))
-            .map_err(|_| anyhow!("Failed to send status change event"))?;
-        Ok(())
+            .context("Failed to send status change event")
     }
 }

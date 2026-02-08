@@ -24,10 +24,23 @@ impl ModemRequest {
     const TIMEOUT_SMS: Duration = Duration::from_secs(30);
     const TIMEOUT_DEFAULT: Duration = Duration::from_secs(5);
 
-    pub const fn get_default_timeout(&self) -> Duration {
+    pub fn get_default_timeout(&self) -> Duration {
         match self {
             ModemRequest::SendSMS { .. } => Self::TIMEOUT_SMS,
             _ => Self::TIMEOUT_DEFAULT,
+        }
+    }
+
+    pub fn expected_response_prefix(&self) -> &'static str {
+        match self {
+            ModemRequest::SendSMS { .. } => "+CMGS:",
+            ModemRequest::GetNetworkStatus => "+CREG:",
+            ModemRequest::GetSignalStrength => "+CSQ:",
+            ModemRequest::GetNetworkOperator => "+COPS:",
+            ModemRequest::GetServiceProvider => "+CSPN:",
+            ModemRequest::GetBatteryLevel => "+CBC:",
+            ModemRequest::GetGNSSStatus => "+CGPSSTATUS:",
+            ModemRequest::GetGNSSLocation => "+CGNSINF:",
         }
     }
 }
@@ -149,6 +162,7 @@ impl UnsolicitedMessageKind {
     }
 
     /// Check if the notification contains additional data on a new line.
+    /// Most send a header line first, newline then the actual data, some don't.
     pub fn has_next_line(&self) -> bool {
         match self {
             UnsolicitedMessageKind::ShuttingDown => false,
